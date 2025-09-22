@@ -190,12 +190,9 @@ def show_location(location, npcs, player, quests):
     for npc_name in location.npcs:
         npc = npcs[npc_name]
         has_quest = False
-        for quest in quests.values():
-            if (quest.name not in player.completed_quests and
-                quest.name not in player.active_quests and
-                quest.start and
-                quest.start.get('type') == 'npc' and
-                quest.start.get('ref') == npc.name):
+        # Check if the NPC has any quests in their list that the player can take
+        for quest_name in npc.quests:
+            if quest_name not in player.active_quests and quest_name not in player.completed_quests:
                 has_quest = True
                 break
         if has_quest:
@@ -434,47 +431,53 @@ def main():
                 if target_name.lower() == npc_name.lower():
                     npc_to_talk = npcs[npc_name]
                     break
-            if npc_to_talk:
-                player.dialogue_history.add(npc_to_talk.name)
+
+            if not npc_to_talk:
+                print(f"You don't see {target_name} here.")
+                continue
+
+            player.dialogue_history.add(npc_to_talk.name)
+            check_collect_quests(player, quests)
+
+            quest_offered = False
+            # Iterate through the NPC's quest list in order
+            for quest_name in npc_to_talk.quests:
+                if quest_name in player.active_quests or quest_name in player.completed_quests:
+                    continue
+
+                # Found an available quest to offer
                 if npc_to_talk.dialogue:
                     print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
-                check_collect_quests(player, quests)
-                # Check for quests this NPC can offer
-                quests_to_offer_names = set()
-                for quest in quests.values():
-                    if (quest.name not in player.completed_quests and
-                        quest.name not in player.active_quests and
-                        quest.start and
-                        quest.start.get('type') == 'npc' and
-                        quest.start.get('ref') == npc_to_talk.name):
-                        quests_to_offer_names.add(quest.name)
 
-                # Also include quests explicitly listed in the NPC's data (for non-standard quests)
-                quests_to_offer_names.update(npc_to_talk.quests)
+                quest_to_offer = quests[quest_name]
+                print(f"Quest offered: \"{quest_to_offer.name}\"")
+                print(f"- {quest_to_offer.description}")
+                reward_item = quest_to_offer.reward.get('item', 'nothing')
+                if not reward_item: reward_item = 'nothing'
+                print(f"Reward: {quest_to_offer.reward.get('xp', 0)} XP, {reward_item}")
 
-                for quest_name in quests_to_offer_names:
-                    if quest_name not in player.active_quests and quest_name not in player.completed_quests:
-                        quest_to_offer = quests[quest_name]
-                        print(f"Quest offered: \"{quest_to_offer.name}\"")
-                        print(f"- {quest_to_offer.description}")
-                        reward_item = quest_to_offer.reward.get('item', 'nothing')
-                        if not reward_item: reward_item = 'nothing'
-                        print(f"Reward: {quest_to_offer.reward.get('xp', 0)} XP, {reward_item}")
+                accept = input("Accept? (yes/no) > ").lower()
+                if accept == 'yes':
+                    player.active_quests[quest_name] = copy.deepcopy(quest_to_offer)
+                    print(f"Quest accepted: \"{quest_name}\"")
+                    if 'item' in quest_to_offer.on_accept and quest_to_offer.on_accept['item']:
+                        item_name = quest_to_offer.on_accept['item']
+                        player.inventory.append(item_name)
+                        print(f"You receive a {item_name}.")
 
-                        accept = input("Accept? (yes/no) > ").lower()
-                        if accept == 'yes':
-                            player.active_quests[quest_name] = copy.deepcopy(quest_to_offer)
-                            if quest_name in player.available_quests:
-                                player.available_quests.remove(quest_name)
-                            print(f"Quest accepted: \"{quest_name}\"")
-                            if 'item' in quest_to_offer.on_accept and quest_to_offer.on_accept['item']:
-                                item_name = quest_to_offer.on_accept['item']
-                                player.inventory.append(item_name)
-                                print(f"You receive a {item_name}.")
-                        # Break after the first quest is offered and handled
-                        break
-            else:
-                print(f"You don't see {target_name} here.")
+                quest_offered = True
+                break # Offer only one quest per interaction
+
+            if not quest_offered:
+                # If no quests were offered, give a generic response
+                if len(npc_to_talk.dialogue) > 1:
+                    # Use a different line for generic talk if available
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}"')
+                elif npc_to_talk.dialogue:
+                    # Fallback to the first line if it's the only one
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
+                else:
+                    print(f"{npc_to_talk.name} has nothing more to say.")
         elif command == "equip":
             if not target_name:
                 print("Equip what?")
