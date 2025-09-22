@@ -337,7 +337,18 @@ This section expands the AGENTS design for **Phase 2**, focusing on progression,
 
 ### 4. Quest Tracking
 
-* `quests`: List active quests and their progress.
+- `quests`: List active quests and their progress.
+
+### 5. Combat (Turn-Based Update)
+- **Command:** `attack [monster]`
+- **Behavior:**
+  - First attack message: `You engage the [monster] in combat!`
+  - Each `attack` command executes one **turn**:
+    - Player attack → print damage dealt and monster’s HP left.
+    - Monster counterattacks (if alive) → print damage dealt and player’s HP left.
+  - Player must type `attack [monster]` again for the next turn.
+  - Combat ends when either the monster or player is defeated.
+- **Removed:** The line `A wild [monster] appears!` (monsters are already visible via `look`).
 
 ---
 

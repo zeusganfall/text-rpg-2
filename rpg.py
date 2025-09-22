@@ -2,6 +2,7 @@ import json
 import os
 import random
 import time
+import copy
 
 class Player:
     def __init__(self, name, hp, current_location, inventory=None):
@@ -17,6 +18,7 @@ class Player:
         self.equipped_armor = None
         self.active_quests = {}
         self.completed_quests = []
+        self.current_combat_target = None
 
     def get_attack_power(self):
         total_power = self.attack_power
@@ -121,11 +123,12 @@ def load_game_data(filepath="game_data.json"):
         else:
             items[name] = Item(name=name, **details)
 
+    monsters = {name: Monster(name=name, **details) for name, details in data['monsters'].items()}
     npcs = {name: NPC(name=name, **details) for name, details in data.get('npcs', {}).items()}
     quests = {name: Quest(name=name, **details) for name, details in data.get('quests', {}).items()}
     locations = {name: Location(name=name, **details) for name, details in data['locations'].items()}
 
-    return data, items, locations, npcs, quests
+    return data, items, monsters, locations, npcs, quests
 
 # --- Helper Functions ---
 def clear_screen():
@@ -170,33 +173,10 @@ def handle_look(location, npcs):
     location_npcs = [npc.name for npc in npcs.values() if npc.name in location.npcs]
     print(f"You see: {', '.join(location_npcs) if location_npcs else 'no one special'}")
 
-def handle_combat(player, monster_name, game_data):
-    monster_data = game_data['monsters'][monster_name]
-    monster = Monster(name=monster_name, **monster_data)
-    print(f"\nA wild {monster.name} appears!")
-
-    while player.hp > 0 and monster.hp > 0:
-        # Player attacks
-        player_attack = player.get_attack_power()
-        monster.hp -= player_attack
-        print(f"\nYou attack the {monster.name} for {player_attack} damage.")
-        if monster.hp <= 0:
-            break
-        print(f"{monster.name} has {monster.hp} HP left.")
-
-        # Monster attacks
-        monster_attack = monster.attack_power
-        if player.equipped_armor:
-            monster_attack = max(0, monster_attack - player.equipped_armor.defense)
-        player.hp -= monster_attack
-        print(f"{monster.name} attacks you for {monster_attack} damage.")
-        print(f"You have {player.hp} HP left.")
-
-    return player.hp > 0, monster
 
 # --- Game Loop ---
 def main():
-    game_data, items, locations, npcs, quests = load_game_data()
+    game_data, items, monsters, locations, npcs, quests = load_game_data()
     player = Player("Player", 20, game_data['player_start']) # Increased HP for better survival
 
     handle_look(locations[player.current_location], npcs)
@@ -397,25 +377,47 @@ def main():
                 print("Attack what?")
                 continue
 
-            monster_name_to_attack = None
-            for monster_name in current_loc.monsters:
-                if target_name.lower() == monster_name.lower():
-                    monster_name_to_attack = monster_name
-                    break
+            monster_to_attack = None
 
-            if monster_name_to_attack:
-                player_won, defeated_monster = handle_combat(player, monster_name_to_attack, game_data)
+            # Check if already in combat
+            if player.current_combat_target:
+                if target_name.lower() != player.current_combat_target.name.lower():
+                    print(f"You are already in combat with {player.current_combat_target.name}!")
+                    continue
+                monster_to_attack = player.current_combat_target
+            else:
+                # Start new combat
+                monster_name_to_attack = None
+                for monster_name in current_loc.monsters:
+                    if target_name.lower() == monster_name.lower():
+                        monster_name_to_attack = monster_name
+                        break
 
-                if not player_won:
-                    print("You have been defeated. Game over.")
-                    break
+                if not monster_name_to_attack:
+                    print(f"You don't see a {target_name} here.")
+                    continue
 
-                # Post-combat
+                # Create a copy of the monster for combat
+                monster_prototype = monsters[monster_name_to_attack]
+                monster_to_attack = copy.deepcopy(monster_prototype)
+
+                player.current_combat_target = monster_to_attack
+                print(f"You engage the {monster_to_attack.name} in combat!")
+
+            # --- Execute one turn of combat ---
+            # Player attacks
+            player_attack = player.get_attack_power()
+            monster_to_attack.hp -= player_attack
+            print(f"You attack the {monster_to_attack.name} for {player_attack} damage.")
+
+            if monster_to_attack.hp <= 0:
+                # Monster defeated
+                defeated_monster = monster_to_attack
                 print(f"You defeated the {defeated_monster.name}!")
                 current_loc.monsters.remove(defeated_monster.name)
 
                 # Grant XP
-                player.gain_xp(game_data['monsters'][defeated_monster.name].get('xp', 5))
+                player.gain_xp(defeated_monster.xp)
 
                 # Update Quests
                 for quest in player.active_quests.values():
@@ -442,8 +444,25 @@ def main():
                     for loot_item in defeated_monster.loot:
                         current_loc.items.append(loot_item)
                         print(f"The {defeated_monster.name} dropped a {loot_item}.")
+
+                # End combat
+                player.current_combat_target = None
             else:
-                print(f"You don't see a {target_name} here.")
+                # Monster is still alive
+                print(f"{monster_to_attack.name} has {monster_to_attack.hp} HP left.")
+
+                # Monster counter-attacks
+                monster_attack = monster_to_attack.attack_power
+                if player.equipped_armor:
+                    monster_attack = max(0, monster_attack - player.equipped_armor.defense)
+                player.hp -= monster_attack
+                print(f"{monster_to_attack.name} attacks you for {monster_attack} damage.")
+                print(f"You have {player.hp} HP left.")
+
+                if player.hp <= 0:
+                    print("You have been defeated. Game over.")
+                    player.current_combat_target = None
+                    break # End game loop
 
         elif command == "help":
             print_help()
