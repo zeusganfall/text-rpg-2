@@ -1,0 +1,45 @@
+{
+  "locations": {
+    "Luminaris": {
+      "description": "The weakened capital of Eryndral. Merchants whisper of shadows stirring beyond the gates.",
+      "exits": {
+        "north": "Shademire Woods",
+        "down": "Crumbling Catacombs"
+      },
+      "items": [],
+      "monsters": []
+    },
+    "Shademire Woods": {
+      "description": "Twisted trees block out the sun. The air feels heavy, and faint eyes glimmer in the dark.",
+      "exits": {
+        "south": "Luminaris"
+      },
+      "items": [],
+      "monsters": ["Goblin"]
+    },
+    "Crumbling Catacombs": {
+      "description": "Ancient tombs beneath Luminaris, now cracked open. Echoes of movement hint at lurking danger.",
+      "exits": {
+        "up": "Luminaris"
+      },
+      "items": ["Rusted Sword"],
+      "monsters": []
+    }
+  },
+
+  "items": {
+    "Rusted Sword": {
+      "description": "An old sword, barely sharp, but better than bare hands."
+    }
+  },
+
+  "monsters": {
+    "Goblin": {
+      "hp": 10,
+      "attack_power": 2,
+      "loot": ["Rusted Sword"]
+    }
+  },
+
+  "player_start": "Luminaris"
+}
