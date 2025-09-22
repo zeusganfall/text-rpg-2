@@ -43,8 +43,16 @@
     },
     "Healing Potion": {
       "type": "Potion",
-      "description": "A small vial that restores 5 HP.",
-      "heal_amount": 5
+      "description": "A small vial that restores 10 HP.",
+      "heal_amount": 10
+    },
+    "Goblin Ear": {
+        "type": "Item",
+        "description": "A gruesome trophy."
+    },
+    "Bone Fragment": {
+        "type": "Item",
+        "description": "A piece of a skeleton."
     }
   },
 
@@ -52,12 +60,14 @@
     "Goblin": {
       "hp": 10,
       "attack_power": 2,
-      "loot": ["Goblin Ear"]
+      "loot": ["Goblin Ear"],
+      "xp": 10
     },
     "Skeleton": {
       "hp": 12,
       "attack_power": 3,
-      "loot": ["Bone Fragment"]
+      "loot": ["Bone Fragment"],
+      "xp": 15
     }
   },
 
