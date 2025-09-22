@@ -11,9 +11,6 @@ def clear_screen():
     else:
         os.system("clear")
 
-def pause():
-    """Pauses the game and waits for user input."""
-    input("\nPress Enter to continue...")
 
 # --- Core Classes ---
 
@@ -100,7 +97,6 @@ class Game:
         clear_screen()
         print("Welcome to the world of Eryndral!")
         print("Your quest begins...")
-        pause()
 
         self.game_is_running = True
         while self.game_is_running:
@@ -159,12 +155,13 @@ class Game:
         verb = parts[0]
         target = " ".join(parts[1:]) if len(parts) > 1 else None
 
-        action_requires_pause = True
         if verb == "look":
             # The loop already shows the location, so we just let it refresh.
-            action_requires_pause = False
+            pass
         elif verb == "inventory":
             self.show_inventory()
+        elif verb == "help":
+            self.show_help()
         elif verb == "get":
             if target:
                 self.get_item(target)
@@ -178,14 +175,10 @@ class Game:
         elif verb == "attack":
             if target:
                 self.start_combat(target)
-                action_requires_pause = False # Combat handles its own pausing
             else:
                 print("Who do you want to attack?")
         else:
             print("I don't understand that command.")
-
-        if action_requires_pause:
-            pause()
 
     def move_player(self, direction):
         """Moves the player to a new location."""
@@ -236,7 +229,6 @@ class Game:
 
         if not monster_to_fight_name:
             print(f"There is no {monster_name} here to fight.")
-            pause()
             return
 
         blueprint = self.monster_blueprints[monster_to_fight_name]
@@ -246,7 +238,6 @@ class Game:
         )
 
         print(f"\nA wild {monster.name} appears and attacks!")
-        pause()
 
         player_attack_power = 3
 
@@ -264,11 +255,9 @@ class Game:
                 if monster.loot:
                     location.items.extend(monster.loot)
                     print(f"The {monster.name} dropped: {', '.join(monster.loot)}")
-                pause()
                 break
 
             print(f"{monster.name} has {monster.hp} HP left.")
-            pause()
 
             # Monster's turn
             print(f"\n{monster.name} attacks you for {monster.attack_power} damage.")
@@ -277,11 +266,23 @@ class Game:
                 print("\nYou have been defeated...")
                 print("--- GAME OVER ---")
                 self.game_is_running = False
-                pause()
                 break
 
             print(f"You have {self.player.hp} HP left.")
-            pause()
+
+
+    def show_help(self):
+        """Displays the help screen with all available commands."""
+        print("\n--- Available Commands ---")
+        print("- look: Show your current location and surroundings")
+        print("- [number]: Move to another location using the exit list")
+        print("- get [item]: Pick up an item")
+        print("- drop [item]: Drop an item")
+        print("- inventory: Show what you are carrying")
+        print("- attack [monster]: Fight a monster")
+        print("- help: Show this help screen")
+        print("- quit: Exit the game")
+        print("--------------------------")
 
 
 # --- Main Game Logic ---
