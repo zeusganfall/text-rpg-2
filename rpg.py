@@ -190,9 +190,12 @@ def show_location(location, npcs, player, quests):
     for npc_name in location.npcs:
         npc = npcs[npc_name]
         has_quest = False
-        for quest_name in player.available_quests:
-            quest = quests[quest_name]
-            if quest.start and quest.start.get('type') == 'npc' and quest.start.get('ref') == npc.name:
+        for quest in quests.values():
+            if (quest.name not in player.completed_quests and
+                quest.name not in player.active_quests and
+                quest.start and
+                quest.start.get('type') == 'npc' and
+                quest.start.get('ref') == npc.name):
                 has_quest = True
                 break
         if has_quest:
@@ -436,12 +439,18 @@ def main():
                 for line in npc_to_talk.dialogue:
                     print(f'{npc_to_talk.name}: "{line}"')
                 check_collect_quests(player, quests)
-                # Combine quests from npc.quests and player.available_quests
-                quests_to_offer_names = set(npc_to_talk.quests)
-                for q_name in player.available_quests:
-                    quest = quests[q_name]
-                    if quest.start and quest.start.get('type') == 'npc' and quest.start.get('ref') == npc_to_talk.name:
-                        quests_to_offer_names.add(q_name)
+                # Check for quests this NPC can offer
+                quests_to_offer_names = set()
+                for quest in quests.values():
+                    if (quest.name not in player.completed_quests and
+                        quest.name not in player.active_quests and
+                        quest.start and
+                        quest.start.get('type') == 'npc' and
+                        quest.start.get('ref') == npc_to_talk.name):
+                        quests_to_offer_names.add(quest.name)
+
+                # Also include quests explicitly listed in the NPC's data (for non-standard quests)
+                quests_to_offer_names.update(npc_to_talk.quests)
 
                 for quest_name in quests_to_offer_names:
                     if quest_name not in player.active_quests and quest_name not in player.completed_quests:
