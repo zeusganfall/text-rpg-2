@@ -92,7 +92,7 @@ class Readable(Item):
         self.lore_text = lore_text
 
 class Monster:
-    def __init__(self, name, hp, attack_power, loot=None, xp=0):
+    def __init__(self, name, hp, attack_power, loot=None, xp=0, **kwargs):
         self.name = name
         self.hp = hp
         self.attack_power = attack_power
