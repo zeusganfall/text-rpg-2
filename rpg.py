@@ -67,28 +67,28 @@ class Location:
         self.active_monsters = list(self.monsters)
 
 class Item:
-    def __init__(self, name, description):
+    def __init__(self, name, description, **kwargs):
         self.name = name
         self.description = description
 
 class Weapon(Item):
-    def __init__(self, name, description, damage):
-        super().__init__(name, description)
+    def __init__(self, name, description, damage, **kwargs):
+        super().__init__(name, description, **kwargs)
         self.damage = damage
 
 class Armor(Item):
-    def __init__(self, name, description, defense):
-        super().__init__(name, description)
+    def __init__(self, name, description, defense, **kwargs):
+        super().__init__(name, description, **kwargs)
         self.defense = defense
 
 class Potion(Item):
-    def __init__(self, name, description, heal_amount):
-        super().__init__(name, description)
+    def __init__(self, name, description, heal_amount, **kwargs):
+        super().__init__(name, description, **kwargs)
         self.heal_amount = heal_amount
 
 class Readable(Item):
-    def __init__(self, name, description, lore_text=""):
-        super().__init__(name, description)
+    def __init__(self, name, description, lore_text="", **kwargs):
+        super().__init__(name, description, **kwargs)
         self.lore_text = lore_text
 
 class Monster:
