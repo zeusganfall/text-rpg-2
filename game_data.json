@@ -1,4 +1,6 @@
 {
+  "player_start": "Luminaris",
+
   "locations": {
     "Luminaris": {
       "description": "The weakened capital of Eryndral. Merchants whisper of shadows stirring beyond the gates.",
@@ -7,7 +9,8 @@
         "down": "Crumbling Catacombs"
       },
       "items": [],
-      "monsters": []
+      "monsters": [],
+      "npcs": ["Guard Captain"]
     },
     "Shademire Woods": {
       "description": "Twisted trees block out the sun. The air feels heavy, and faint eyes glimmer in the dark.",
@@ -15,21 +18,33 @@
         "south": "Luminaris"
       },
       "items": [],
-      "monsters": ["Goblin"]
+      "monsters": ["Goblin", "Goblin", "Goblin"]
     },
     "Crumbling Catacombs": {
-      "description": "Ancient tombs beneath Luminaris, now cracked open. Echoes of movement hint at lurking danger.",
+      "description": "Ancient stone tunnels filled with stale air. Bones crunch beneath your feet.",
       "exits": {
         "up": "Luminaris"
       },
       "items": ["Rusted Sword"],
-      "monsters": []
+      "monsters": ["Skeleton"]
     }
   },
 
   "items": {
     "Rusted Sword": {
-      "description": "An old sword, barely sharp, but better than bare hands."
+      "type": "Weapon",
+      "description": "An old blade, chipped but still sharp enough to cut.",
+      "damage": 2
+    },
+    "Leather Armor": {
+      "type": "Armor",
+      "description": "Worn but serviceable armor, offers slight protection.",
+      "defense": 1
+    },
+    "Healing Potion": {
+      "type": "Potion",
+      "description": "A small vial that restores 5 HP.",
+      "heal_amount": 5
     }
   },
 
@@ -37,9 +52,40 @@
     "Goblin": {
       "hp": 10,
       "attack_power": 2,
-      "loot": ["Rusted Sword"]
+      "loot": ["Goblin Ear"]
+    },
+    "Skeleton": {
+      "hp": 12,
+      "attack_power": 3,
+      "loot": ["Bone Fragment"]
     }
   },
 
-  "player_start": "Luminaris"
+  "npcs": {
+    "Guard Captain": {
+      "dialogue": [
+        "Shadows are stirring in Shademire Woods.",
+        "We need brave souls to protect the kingdom."
+      ],
+      "quests": ["Clear the Woods"]
+    }
+  },
+
+  "quests": {
+    "Clear the Woods": {
+      "description": "Defeat 3 Goblins in Shademire Woods.",
+      "goal": {
+        "type": "kill",
+        "target": "Goblin",
+        "count": 3
+      },
+      "reward": {
+        "xp": 50,
+        "item": "Healing Potion"
+      },
+      "on_accept": {
+        "item": "Healing Potion"
+      }
+    }
+  }
 }

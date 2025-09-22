@@ -242,3 +242,170 @@ These are not “agents” inside the world but **support tools** that make the 
   * Status updates (HP, monster defeat, item pickups).
 
 ---
+
+# RPG AGENTS (Phase 2)
+
+This section expands the AGENTS design for **Phase 2**, focusing on progression, items, and quests.
+
+---
+
+## Agents (Classes)
+
+### 1. Player (Expanded)
+
+* **New Attributes:**
+
+  * `xp`: integer (experience points)
+  * `level`: integer (player level)
+  * `attack_power`: integer (base damage, increases with level or equipped weapon)
+  * `equipped_weapon`: reference to `Weapon` item (optional)
+  * `equipped_armor`: reference to `Armor` item (optional)
+* **New Behavior:**
+
+  * `gain_xp(amount)`: Increases XP; checks for level-up.
+  * `level_up()`: Increases `hp` and `attack_power` when XP threshold is reached.
+  * `equip(item)`: Equip a weapon or armor.
+  * `unequip(item_type)`: Remove currently equipped weapon or armor.
+
+### 2. Item (Expanded via Subclasses)
+
+* Base `Item`: `name`, `description`.
+* **Weapon (Subclass of Item):**
+
+  * Attributes: `damage`
+  * Behavior: Adds to player attack power when equipped.
+* **Armor (Subclass of Item):**
+
+  * Attributes: `defense`
+  * Behavior: Reduces damage taken when equipped.
+* **Potion (Subclass of Item):**
+
+  * Attributes: `heal_amount`
+  * Behavior: `use()` restores player HP.
+
+### 3. NPC (New)
+
+* **Purpose:** Characters that are not monsters or players.
+* **Attributes:**
+
+  * `name`: string
+  * `dialogue`: list of strings
+  * `quests`: list of `Quest` objects (optional)
+* **Behavior:**
+
+  * `talk()`: Print dialogue lines.
+  * `give_quest()`: Offer a quest to the player.
+
+### 4. Quest (New / Expanded)
+
+* **Purpose:** Track goals, rewards, and starting effects.
+* **Attributes:**
+
+  * `name`: string
+  * `description`: string
+  * `goal`: condition (e.g., kill X monsters)
+  * `progress`: current progress value
+  * `is_complete`: boolean
+  * `reward`: XP, item, or both
+  * `on_accept`: optional effect (e.g., grant item, XP, or trigger dialogue)
+* **Behavior:**
+
+  * `update_progress(event)`: Increments progress.
+  * `check_completion()`: Marks quest complete and grants reward.
+  * `accept()`: Grants any `on_accept` effects (items, XP, dialogue) when the quest starts.
+
+---
+
+## Tools (Commands / Player Interactions)
+
+### 1. Player Progression
+
+* `xp` and `level` displayed with `status` command.
+* Leveling up increases player stats automatically.
+
+### 2. Inventory (Expanded)
+
+* New commands:
+
+  * `equip [item]`: Equip a weapon or armor.
+  * `unequip [weapon/armor]`: Unequip current gear.
+  * `use [potion]`: Consume a potion to heal.
+
+### 3. NPC Interaction
+
+* `talk [npc]`: Display dialogue and potential quest offer.
+
+### 4. Quest Tracking
+
+* `quests`: List active quests and their progress.
+
+---
+
+## System Tools (Behind-the-Scenes)
+
+### 1. Quest Tracker
+
+* Updates progress when monsters are defeated or conditions are met.
+* Stores completed quests and prevents re-taking story quests.
+* Supports `on_accept` effects for starting quests.
+
+### 2. Leveling System
+
+* Defines XP thresholds for each level.
+* Triggers `level_up()` on Player when thresholds are crossed.
+
+---
+
+## Input and Output Conventions (Summary)
+
+* **Input:**
+
+  * Numbers for navigation.
+  * Text commands for actions (`look`, `inventory`, `equip sword`, `talk guard`, `quests`, etc.).
+* **Output:**
+
+  * Clear feedback when leveling up, completing quests, equipping items, or receiving `on_accept` effects.
+
+---
+
+## Sample NPC + Quest Flow
+
+**Scenario:** Player talks to a guard captain in Luminaris.
+
+```
+📍 Luminaris
+You see: Guard Captain
+
+> talk guard captain
+Guard Captain: "Shadows are stirring in Shademire Woods. Can you help us?"
+Quest offered: "Clear the Woods"
+- Defeat 3 Goblins in Shademire Woods.
+Reward: 50 XP, Healing Potion
+You receive a Healing Potion to aid you.
+
+> quests
+Active quests:
+- Clear the Woods (0/3 Goblins defeated)
+
+> attack goblin
+You strike the Goblin for 4 damage.
+Goblin has 6 HP left.
+Goblin attacks you for 2 damage.
+You have 18 HP left.
+
+> attack goblin
+You defeat the Goblin! It drops a Goblin Ear.
+Quest progress updated: Clear the Woods (1/3)
+
+> quests
+Active quests:
+- Clear the Woods (1/3 Goblins defeated)
+
+... (after defeating 3 Goblins) ...
+
+Quest Complete: Clear the Woods
+Reward gained: 50 XP, Healing Potion
+You leveled up! You are now Level 2.
+```
+
+---
