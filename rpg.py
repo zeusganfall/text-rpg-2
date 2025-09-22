@@ -7,21 +7,78 @@ class Player:
     def __init__(self, name, hp, current_location, inventory=None):
         self.name = name
         self.hp = hp
+        self.max_hp = hp
         self.current_location = current_location
         self.inventory = inventory if inventory is not None else []
+        self.xp = 0
+        self.level = 1
+        self.attack_power = 1  # Base attack power
+        self.equipped_weapon = None
+        self.equipped_armor = None
+        self.active_quests = {}
+        self.completed_quests = []
+
+    def get_attack_power(self):
+        total_power = self.attack_power
+        if self.equipped_weapon:
+            total_power += self.equipped_weapon.damage
+        return total_power
+
+    def gain_xp(self, amount):
+        self.xp += amount
+        print(f"You gained {amount} XP.")
+        self.check_level_up()
+
+    def check_level_up(self):
+        xp_to_level_up = 100 * self.level  # Simple level progression
+        if self.xp >= xp_to_level_up:
+            self.xp -= xp_to_level_up
+            self.level += 1
+            self.max_hp += 10
+            self.hp = self.max_hp
+            self.attack_power += 1
+            print(f"You leveled up! You are now Level {self.level}.")
+
+    def show_status(self):
+        print("\n--- Player Status ---")
+        print(f"Level: {self.level}")
+        print(f"XP: {self.xp} / {100 * self.level}")
+        print(f"HP: {self.hp} / {self.max_hp}")
+        print(f"Attack Power: {self.get_attack_power()}")
+        if self.equipped_weapon:
+            print(f"Weapon: {self.equipped_weapon.name} (+{self.equipped_weapon.damage} dmg)")
+        if self.equipped_armor:
+            print(f"Armor: {self.equipped_armor.name} (+{self.equipped_armor.defense} def)")
+        print("---------------------")
 
 class Location:
-    def __init__(self, name, description, exits, items=None, monsters=None):
+    def __init__(self, name, description, exits, items=None, monsters=None, npcs=None):
         self.name = name
         self.description = description
         self.exits = exits
         self.items = items if items is not None else []
         self.monsters = monsters if monsters is not None else []
+        self.npcs = npcs if npcs is not None else []
 
 class Item:
     def __init__(self, name, description):
         self.name = name
         self.description = description
+
+class Weapon(Item):
+    def __init__(self, name, description, damage):
+        super().__init__(name, description)
+        self.damage = damage
+
+class Armor(Item):
+    def __init__(self, name, description, defense):
+        super().__init__(name, description)
+        self.defense = defense
+
+class Potion(Item):
+    def __init__(self, name, description, heal_amount):
+        super().__init__(name, description)
+        self.heal_amount = heal_amount
 
 class Monster:
     def __init__(self, name, hp, attack_power, loot=None):
@@ -30,16 +87,44 @@ class Monster:
         self.attack_power = attack_power
         self.loot = loot if loot is not None else []
 
+class NPC:
+    def __init__(self, name, dialogue=None, quests=None):
+        self.name = name
+        self.dialogue = dialogue if dialogue is not None else []
+        self.quests = quests if quests is not None else []
+
+class Quest:
+    def __init__(self, name, description, goal, reward, on_accept=None):
+        self.name = name
+        self.description = description
+        self.goal = goal
+        self.reward = reward
+        self.on_accept = on_accept if on_accept is not None else {}
+        self.progress = 0
+        self.is_complete = False
+
 # --- Data Loading ---
 def load_game_data(filepath="game_data.json"):
     with open(filepath, 'r') as f:
         data = json.load(f)
 
-    items = {name: Item(name=name, **details) for name, details in data['items'].items()}
-    monsters = {name: Monster(name=name, **details) for name, details in data['monsters'].items()}
+    items = {}
+    for name, details in data['items'].items():
+        item_type = details.pop('type', 'Item')
+        if item_type == 'Weapon':
+            items[name] = Weapon(name=name, **details)
+        elif item_type == 'Armor':
+            items[name] = Armor(name=name, **details)
+        elif item_type == 'Potion':
+            items[name] = Potion(name=name, **details)
+        else:
+            items[name] = Item(name=name, **details)
+
+    npcs = {name: NPC(name=name, **details) for name, details in data.get('npcs', {}).items()}
+    quests = {name: Quest(name=name, **details) for name, details in data.get('quests', {}).items()}
     locations = {name: Location(name=name, **details) for name, details in data['locations'].items()}
 
-    return data, items, monsters, locations
+    return data, items, locations, npcs, quests
 
 # --- Helper Functions ---
 def clear_screen():
@@ -56,10 +141,16 @@ def print_help():
     print("  - drop [item]: Drop an item")
     print("  - inventory: Show what you are carrying")
     print("  - attack [monster]: Fight a monster")
+    print("  - status: Show your current level, XP, and HP")
+    print("  - equip [item]: Equip a weapon or armor")
+    print("  - unequip [weapon/armor]: Unequip your weapon or armor")
+    print("  - use [potion]: Use a potion to heal")
+    print("  - talk [npc]: Talk to an NPC")
+    print("  - quests: View your active quests")
     print("  - help: Show this help screen")
     print("  - quit: Exit the game")
 
-def handle_look(location):
+def handle_look(location, npcs):
     clear_screen()
     print(f"📍 {location.name}")
     print(location.description)
@@ -74,12 +165,40 @@ def handle_look(location):
     print(f"Items: {', '.join(location.items) if location.items else 'none'}")
     print(f"Monsters: {', '.join(location.monsters) if location.monsters else 'none'}")
 
+    # Display NPCs
+    location_npcs = [npc.name for npc in npcs.values() if npc.name in location.npcs]
+    print(f"You see: {', '.join(location_npcs) if location_npcs else 'no one special'}")
+
+def handle_combat(player, monster_name, game_data):
+    monster_data = game_data['monsters'][monster_name]
+    monster = Monster(name=monster_name, **monster_data)
+    print(f"\nA wild {monster.name} appears!")
+
+    while player.hp > 0 and monster.hp > 0:
+        # Player attacks
+        player_attack = player.get_attack_power()
+        monster.hp -= player_attack
+        print(f"\nYou attack the {monster.name} for {player_attack} damage.")
+        if monster.hp <= 0:
+            break
+        print(f"{monster.name} has {monster.hp} HP left.")
+
+        # Monster attacks
+        monster_attack = monster.attack_power
+        if player.equipped_armor:
+            monster_attack = max(0, monster_attack - player.equipped_armor.defense)
+        player.hp -= monster_attack
+        print(f"{monster.name} attacks you for {monster_attack} damage.")
+        print(f"You have {player.hp} HP left.")
+
+    return player.hp > 0, monster
+
 # --- Game Loop ---
 def main():
-    game_data, items, monsters, locations = load_game_data()
+    game_data, items, locations, npcs, quests = load_game_data()
     player = Player("Player", 20, game_data['player_start']) # Increased HP for better survival
 
-    handle_look(locations[player.current_location])
+    handle_look(locations[player.current_location], npcs)
 
     while True:
         current_loc = locations[player.current_location]
@@ -96,7 +215,7 @@ def main():
             if 0 <= exit_index < len(current_loc.exits):
                 exit_dest = list(current_loc.exits.values())[exit_index]
                 player.current_location = exit_dest
-                handle_look(locations[player.current_location])
+                handle_look(locations[player.current_location], npcs)
             else:
                 print("Invalid exit number.")
 
@@ -105,7 +224,7 @@ def main():
             break
 
         elif command == "look":
-            handle_look(current_loc)
+            handle_look(current_loc, npcs)
 
         elif command == "get":
             if not target_name:
@@ -151,42 +270,177 @@ def main():
                 for item in player.inventory:
                     print(f"  - {item}")
 
+        elif command == "status":
+            player.show_status()
+
+        elif command == "quests":
+            if not player.active_quests:
+                print("You have no active quests.")
+            else:
+                print("\n--- Active Quests ---")
+                for quest_name, quest in player.active_quests.items():
+                    print(f"- {quest.name}: {quest.description} ({quest.progress}/{quest.goal['count']})")
+                print("---------------------")
+
+        elif command == "talk":
+            if not target_name:
+                print("Talk to whom?")
+                continue
+
+            npc_to_talk = None
+            for npc_name in current_loc.npcs:
+                if target_name.lower() == npc_name.lower():
+                    npc_to_talk = npcs[npc_name]
+                    break
+
+            if npc_to_talk:
+                for line in npc_to_talk.dialogue:
+                    print(f'{npc_to_talk.name}: "{line}"')
+
+                # Quest offering
+                for quest_name in npc_to_talk.quests:
+                    if quest_name not in player.active_quests and quest_name not in player.completed_quests:
+                        quest_to_offer = quests[quest_name]
+                        print(f"Quest offered: \"{quest_to_offer.name}\"")
+                        print(f"- {quest_to_offer.description}")
+                        print(f"Reward: {quest_to_offer.reward.get('xp', 0)} XP, {quest_to_offer.reward.get('item', 'nothing')}")
+
+                        accept = input("Accept? (yes/no) > ").lower()
+                        if accept == 'yes':
+                            player.active_quests[quest_name] = quest_to_offer
+                            print(f"Quest accepted: \"{quest_name}\"")
+                            # Handle on_accept
+                            if 'item' in quest_to_offer.on_accept:
+                                item_name = quest_to_offer.on_accept['item']
+                                player.inventory.append(item_name)
+                                print(f"You receive a {item_name}.")
+            else:
+                print(f"You don't see {target_name} here.")
+
+        elif command == "equip":
+            if not target_name:
+                print("Equip what?")
+                continue
+
+            item_to_equip = None
+            for item_name in player.inventory:
+                if target_name.lower() == item_name.lower():
+                    item_to_equip = items[item_name]
+                    break
+
+            if item_to_equip:
+                if isinstance(item_to_equip, Weapon):
+                    if player.equipped_weapon:
+                        player.inventory.append(player.equipped_weapon.name)
+                    player.equipped_weapon = item_to_equip
+                    player.inventory.remove(item_to_equip.name)
+                    print(f"You equipped the {item_to_equip.name}.")
+                elif isinstance(item_to_equip, Armor):
+                    if player.equipped_armor:
+                        player.inventory.append(player.equipped_armor.name)
+                    player.equipped_armor = item_to_equip
+                    player.inventory.remove(item_to_equip.name)
+                    print(f"You equipped the {item_to_equip.name}.")
+                else:
+                    print("You can't equip that.")
+            else:
+                print(f"You don't have a {target_name}.")
+
+        elif command == "unequip":
+            if not target_name:
+                print("Unequip what? (weapon/armor)")
+                continue
+
+            if target_name == "weapon":
+                if player.equipped_weapon:
+                    item_name = player.equipped_weapon.name
+                    player.inventory.append(item_name)
+                    player.equipped_weapon = None
+                    print(f"You unequipped the {item_name}.")
+                else:
+                    print("You have no weapon equipped.")
+            elif target_name == "armor":
+                if player.equipped_armor:
+                    item_name = player.equipped_armor.name
+                    player.inventory.append(item_name)
+                    player.equipped_armor = None
+                    print(f"You unequipped the {item_name}.")
+                else:
+                    print("You have no armor equipped.")
+            else:
+                print("You can only unequip 'weapon' or 'armor'.")
+
+        elif command == "use":
+            if not target_name:
+                print("Use what?")
+                continue
+
+            item_to_use = None
+            for item_name in player.inventory:
+                if target_name.lower() == item_name.lower():
+                    item_to_use = items[item_name]
+                    break
+
+            if item_to_use and isinstance(item_to_use, Potion):
+                player.hp += item_to_use.heal_amount
+                if player.hp > player.max_hp:
+                    player.hp = player.max_hp
+                player.inventory.remove(item_to_use.name)
+                print(f"You used the {item_to_use.name} and healed for {item_to_use.heal_amount} HP.")
+                print(f"You now have {player.hp}/{player.max_hp} HP.")
+            else:
+                print("You can't use that.")
+
         elif command == "attack":
             if not target_name:
                 print("Attack what?")
                 continue
 
-            monster_to_attack = None
+            monster_name_to_attack = None
             for monster_name in current_loc.monsters:
                 if target_name.lower() == monster_name.lower():
-                    monster_to_attack = monsters[monster_name]
+                    monster_name_to_attack = monster_name
                     break
 
-            if monster_to_attack:
-                # Simple combat
-                player_attack = random.randint(1, 5) # Player has no weapon yet
-                monster_attack = monster_to_attack.attack_power
+            if monster_name_to_attack:
+                player_won, defeated_monster = handle_combat(player, monster_name_to_attack, game_data)
 
-                monster_to_attack.hp -= player_attack
-                print(f"You attack the {monster_to_attack.name} for {player_attack} damage.")
+                if not player_won:
+                    print("You have been defeated. Game over.")
+                    break
 
-                if monster_to_attack.hp <= 0:
-                    print(f"You defeated the {monster_to_attack.name}!")
-                    current_loc.monsters.remove(monster_to_attack.name)
-                    if monster_to_attack.loot:
-                        for loot_item in monster_to_attack.loot:
-                            current_loc.items.append(loot_item)
-                            print(f"The {monster_to_attack.name} dropped a {loot_item}.")
-                    # Restore monster HP for next encounter from the original data
-                    monster_to_attack.hp = game_data['monsters'][monster_to_attack.name]['hp']
-                else:
-                    print(f"{monster_to_attack.name} has {monster_to_attack.hp} HP left.")
-                    player.hp -= monster_attack
-                    print(f"{monster_to_attack.name} attacks you for {monster_attack} damage.")
-                    print(f"You have {player.hp} HP left.")
-                    if player.hp <= 0:
-                        print("You have been defeated. Game over.")
-                        break # End game
+                # Post-combat
+                print(f"You defeated the {defeated_monster.name}!")
+                current_loc.monsters.remove(defeated_monster.name)
+
+                # Grant XP
+                player.gain_xp(game_data['monsters'][defeated_monster.name].get('xp', 5))
+
+                # Update Quests
+                for quest in player.active_quests.values():
+                    if quest.goal['type'] == 'kill' and quest.goal['target'] == defeated_monster.name:
+                        quest.progress += 1
+                        print(f"Quest progress: {quest.name} ({quest.progress}/{quest.goal['count']})")
+                        if quest.progress >= quest.goal['count']:
+                            quest.is_complete = True
+                            print(f"Quest Complete: {quest.name}")
+                            if 'xp' in quest.reward:
+                                player.gain_xp(quest.reward['xp'])
+                            if 'item' in quest.reward:
+                                item_name = quest.reward['item']
+                                player.inventory.append(item_name)
+                                print(f"You received a {item_name} as a reward.")
+
+                # Handle completed quests
+                completed = [name for name, quest in player.active_quests.items() if quest.is_complete]
+                for name in completed:
+                    player.completed_quests.append(name)
+                    del player.active_quests[name]
+
+                if defeated_monster.loot:
+                    for loot_item in defeated_monster.loot:
+                        current_loc.items.append(loot_item)
+                        print(f"The {defeated_monster.name} dropped a {loot_item}.")
             else:
                 print(f"You don't see a {target_name} here.")
 
