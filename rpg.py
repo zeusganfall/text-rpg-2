@@ -81,11 +81,12 @@ class Potion(Item):
         self.heal_amount = heal_amount
 
 class Monster:
-    def __init__(self, name, hp, attack_power, loot=None):
+    def __init__(self, name, hp, attack_power, loot=None, xp=0):
         self.name = name
         self.hp = hp
         self.attack_power = attack_power
         self.loot = loot if loot is not None else []
+        self.xp = xp
 
 class NPC:
     def __init__(self, name, dialogue=None, quests=None):
