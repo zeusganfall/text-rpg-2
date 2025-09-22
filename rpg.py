@@ -115,6 +115,7 @@ class Quest:
         self.alternate_goal = alternate_goal
         self.on_accept = on_accept if on_accept is not None else {}
         self.unlocks = unlocks if unlocks is not None else []
+        self.requires = None # New attribute for prerequisites
         self.progress = 0
         self.is_complete = False
 
@@ -145,6 +146,14 @@ def load_game_data(filepath="game_data.json"):
     quests = {name: Quest(name=name, **details) for name, details in data.get('quests', {}).items()}
     if "Investigate the Hollow Clues" in quests:
         quests["Investigate the Hollow Clues"].unlocks = ["Defeat the Cultist Lieutenant"]
+
+    # Post-process to add 'requires' to unlocked quests
+    for quest in quests.values():
+        if quest.unlocks:
+            for unlocked_quest_name in quest.unlocks:
+                if unlocked_quest_name in quests:
+                    quests[unlocked_quest_name].requires = quest.name
+
     locations = {name: Location(name=name, **details) for name, details in data['locations'].items()}
     return data, items, monsters, locations, npcs, quests
 
@@ -191,6 +200,11 @@ def show_location(location, npcs, player, quests):
         has_quest = False
         # Check if the NPC has any quests in their list that the player can take
         for quest_name in npc.quests:
+            quest = quests.get(quest_name)
+            if not quest: continue
+            # Check for prerequisites
+            if quest.requires and quest.requires not in player.completed_quests:
+                continue
             if quest_name not in player.active_quests and quest_name not in player.completed_quests:
                 has_quest = True
                 break
@@ -207,6 +221,8 @@ def handle_look(location, npcs, player, quests):
 def check_quest_availability(player, quests, trigger_type, trigger_ref):
     for quest_name, quest in quests.items():
         if quest_name in player.active_quests or quest_name in player.completed_quests:
+            continue
+        if quest.requires and quest.requires not in player.completed_quests:
             continue
         if not quest.start:
             continue
@@ -262,12 +278,13 @@ def handle_quest_completion(player, quest, quests):
         player.inventory.append(item_name)
         print(f"You received a {item_name} as a reward.")
 
-    # Handle unlocking new quests
+    # Notify player if any quests were unlocked by this completion
     if quest.unlocks:
         for unlocked_quest_name in quest.unlocks:
-            if unlocked_quest_name in quests and unlocked_quest_name not in player.available_quests:
-                player.available_quests.append(unlocked_quest_name)
-                print(f"A new quest has been unlocked: \"{unlocked_quest_name}\"")
+            if unlocked_quest_name in quests:
+                unlocked_quest = quests[unlocked_quest_name]
+                if unlocked_quest.requires == quest.name:
+                     print(f"You feel you can now pursue a new goal: \"{unlocked_quest_name}\"")
 
 def check_collect_quests(player, quests):
     for quest_name, quest in player.active_quests.items():
@@ -463,6 +480,11 @@ def main():
             # Iterate through the NPC's quest list in order
             for quest_name in npc_to_talk.quests:
                 if quest_name in player.active_quests or quest_name in player.completed_quests:
+                    continue
+
+                quest = quests.get(quest_name)
+                if not quest: continue
+                if quest.requires and quest.requires not in player.completed_quests:
                     continue
 
                 # Found an available quest to offer
