@@ -176,6 +176,12 @@ def handle_look(location, npcs):
     print(f"You see: {', '.join(location_npcs) if location_npcs else 'no one special'}")
 
 
+def print_combat_banner(player):
+    monster = player.current_combat_target
+    print(f"\n--- Combat: {monster.name} ({monster.hp} HP) ---")
+    print(f"Your HP: {player.hp} / {player.max_hp}")
+    print("Available actions: attack, use [item], flee")
+
 def handle_monster_turn(player, monster):
     monster_attack = monster.attack_power
     if player.equipped_armor:
@@ -196,6 +202,10 @@ def main():
 
     while True:
         current_loc = locations[player.current_location]
+
+        if player.current_combat_target:
+            print_combat_banner(player)
+
         user_input = input("\n> ").lower().strip()
         if not user_input:
             continue
@@ -216,7 +226,6 @@ def main():
                 player.previous_location = player.current_location
                 player.current_location = exit_dest
 
-                # Respawn monsters on entering a new location
                 new_loc = locations[player.current_location]
                 new_loc.active_monsters = list(new_loc.monsters)
 
@@ -406,14 +415,11 @@ def main():
 
             monster = player.current_combat_target
             print("You attempt to flee...")
-
-            # Monster gets a free attack as you flee
-            if not handle_monster_turn(player, monster):
-                break # Game over
+            print(f"You barely escape the {monster.name}!")
 
             player.current_location = player.previous_location
             player.current_combat_target = None
-            print(f"You escape back to {player.current_location}!")
+            print(f"You return to {player.current_location}.")
             handle_look(locations[player.current_location], npcs)
 
         elif command == "attack":
@@ -443,6 +449,7 @@ def main():
                 monster_to_attack = copy.deepcopy(monster_prototype)
 
                 player.current_combat_target = monster_to_attack
+                print("--- Combat Started ---")
                 print(f"You engage the {monster_to_attack.name} in combat!")
 
             player_attack = player.get_attack_power()
@@ -485,7 +492,7 @@ def main():
                 print(f"{monster_to_attack.name} has {monster_to_attack.hp} HP left.")
                 if not handle_monster_turn(player, monster_to_attack):
                     player.current_combat_target = None
-                    break # Game over
+                    break
 
         elif command == "help":
             print_help()

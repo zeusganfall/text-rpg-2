@@ -115,230 +115,6 @@ The player interacts with the world using **number-based input for movement** an
   You pick up the Rusted Sword.
   ```
 
-### 5. Combat
-
-* **Command:** `attack [monster]`
-* **Output Example:**
-
-  ```
-  You attack the Goblin for 3 damage.
-  Goblin has 7 HP left.
-  Goblin attacks you for 2 damage.
-  You have 8 HP left.
-  ```
-
-### 6. Help
-
-* **Command:** `help`
-* **Output Example:**
-
-  ```
-  Available commands:
-  - look: Show your current location and surroundings
-  - [number]: Move to another location using the exit list
-  - get [item]: Pick up an item
-  - drop [item]: Drop an item
-  - inventory: Show what you are carrying
-  - attack [monster]: Fight a monster
-  - help: Show this help screen
-  - quit: Exit the game
-  ```
-
----
-
-## System Tools (Behind-the-Scenes)
-
-These are not “agents” inside the world but **support tools** that make the game function.
-
-### 1. Game Loop
-
-* **Purpose:** Keeps the game running until the player quits.
-* **Input:** Accepts number inputs for navigation and text commands for actions.
-* **Output:** Prints results of each action (movement, combat, inventory, etc.).
-* **Convention:** Runs as a `while True` loop, ends on a `quit` command.
-
-### 2. Parser
-
-* **Purpose:** Interprets input as either:
-
-  * A **number** for navigation.
-  * A **command** like `look`, `inventory`, `attack [monster]`.
-* **Input Example:**
-
-  ```
-  2
-  ```
-* **Output Example:**
-
-  ```python
-  {"command": "go", "target": "Crumbling Catacombs"}
-  ```
-
-### 3. JSON Loader
-
-* **Purpose:** Loads game data (locations, items, monsters) from `game_data.json`.
-* **Input:** JSON file.
-* **Output:** Python dictionaries and class objects (e.g., `Location`, `Item`, `Monster`).
-* **Convention:** Always reference game entities by their `name` keys.
-
-### 4. Output Formatter
-
-* **Purpose:** Ensures consistent display of text (location headers, combat logs, inventory lists).
-* **Input:** Game state data (player, location, combat events).
-* **Output Example:**
-
-  ```
-  📍 Shademire Woods
-  Twisted trees block out the sun. The air feels heavy, and faint eyes glimmer in the dark.
-  Exits:
-  1. South → Luminaris
-  Items: none
-  Monsters: Goblin
-  ```
-
-### 5. Screen Management
-
-* **Purpose:** Keeps the console readable by clearing old text.
-* **Implementation:**
-
-  ```python
-  import os
-
-  def clear_screen():
-      if os.name == "nt":  # Windows
-          os.system("cls")
-      else:  # macOS / Linux
-          os.system("clear")
-  ```
-* **Best Practice:**
-
-  * Clear the screen **before** showing a new state (e.g., when entering a location).
-  * In combat, show results clearly before the next clear.
-
----
-
-## Data Source (game\_data.json)
-
-* All game content (locations, monsters, items) is stored in `game_data.json`.
-* **Input convention:** Load the JSON file at game start.
-* **Output convention:** The game reads attributes and creates objects dynamically.
-
----
-
-## Input and Output Conventions (Summary)
-
-* **Input:**
-
-  * Numbers for navigation (e.g., `1`, `2`).
-  * Text commands for actions (e.g., `look`, `attack goblin`).
-  * Case-insensitive.
-  * Whitespace trimmed.
-
-* **Output:** Plain text responses, may include:
-
-  * Location descriptions.
-  * Combat feedback.
-  * Inventory changes.
-  * Status updates (HP, monster defeat, item pickups).
-
----
-
-# RPG AGENTS (Phase 2)
-
-This section expands the AGENTS design for **Phase 2**, focusing on progression, items, and quests.
-
----
-
-## Agents (Classes)
-
-### 1. Player (Expanded)
-
-* **New Attributes:**
-
-  * `xp`: integer (experience points)
-  * `level`: integer (player level)
-  * `attack_power`: integer (base damage, increases with level or equipped weapon)
-  * `equipped_weapon`: reference to `Weapon` item (optional)
-  * `equipped_armor`: reference to `Armor` item (optional)
-* **New Behavior:**
-
-  * `gain_xp(amount)`: Increases XP; checks for level-up.
-  * `level_up()`: Increases `hp` and `attack_power` when XP threshold is reached.
-  * `equip(item)`: Equip a weapon or armor.
-  * `unequip(item_type)`: Remove currently equipped weapon or armor.
-
-### 2. Item (Expanded via Subclasses)
-
-* Base `Item`: `name`, `description`.
-* **Weapon (Subclass of Item):**
-
-  * Attributes: `damage`
-  * Behavior: Adds to player attack power when equipped.
-* **Armor (Subclass of Item):**
-
-  * Attributes: `defense`
-  * Behavior: Reduces damage taken when equipped.
-* **Potion (Subclass of Item):**
-
-  * Attributes: `heal_amount`
-  * Behavior: `use()` restores player HP.
-
-### 3. NPC (New)
-
-* **Purpose:** Characters that are not monsters or players.
-* **Attributes:**
-
-  * `name`: string
-  * `dialogue`: list of strings
-  * `quests`: list of `Quest` objects (optional)
-* **Behavior:**
-
-  * `talk()`: Print dialogue lines.
-  * `give_quest()`: Offer a quest to the player.
-
-### 4. Quest (New / Expanded)
-
-* **Purpose:** Track goals, rewards, and starting effects.
-* **Attributes:**
-
-  * `name`: string
-  * `description`: string
-  * `goal`: condition (e.g., kill X monsters)
-  * `progress`: current progress value
-  * `is_complete`: boolean
-  * `reward`: XP, item, or both
-  * `on_accept`: optional effect (e.g., grant item, XP, or trigger dialogue)
-* **Behavior:**
-
-  * `update_progress(event)`: Increments progress.
-  * `check_completion()`: Marks quest complete and grants reward.
-  * `accept()`: Grants any `on_accept` effects (items, XP, dialogue) when the quest starts.
-
----
-
-## Tools (Commands / Player Interactions)
-
-### 1. Player Progression
-
-* `xp` and `level` displayed with `status` command.
-* Leveling up increases player stats automatically.
-
-### 2. Inventory (Expanded)
-
-* New commands:
-
-  * `equip [item]`: Equip a weapon or armor.
-  * `unequip [weapon/armor]`: Unequip current gear.
-  * `use [potion]`: Consume a potion to heal.
-
-### 3. NPC Interaction
-
-* `talk [npc]`: Display dialogue and potential quest offer.
-
-### 4. Quest Tracking
-
-- `quests`: List active quests and their progress.
-
 ### 5. Combat (Turn-Based Update)
 - **Command:** `attack [monster]`
 - **Behavior:**
@@ -350,26 +126,36 @@ This section expands the AGENTS design for **Phase 2**, focusing on progression,
   - Combat ends when either the monster or player is defeated.
 - **Additional Combat Actions:**
   - `use [potion]`: Restores HP instead of attacking.
-  - `flee`: Attempt to escape combat, returning to the previous location. May have a chance of failure or allow the monster one free attack.
+  - `flee`: Instantly ends combat and returns the player to the previous location. Monsters remain in the current location. No free hit is taken when fleeing in Phase 2.
 
 ---
 
 ## System Tools (Behind-the-Scenes)
 
 ### 1. Quest Tracker
-
-* Updates progress when monsters are defeated or conditions are met.
-* Stores completed quests and prevents re-taking story quests.
-* Supports `on_accept` effects for starting quests.
+- Updates progress when monsters are defeated or conditions are met.
+- Stores completed quests and prevents re-taking story quests.
+- Supports `on_accept` effects for starting quests.
 
 ### 2. Leveling System
-
-* Defines XP thresholds for each level.
-* Triggers `level_up()` on Player when thresholds are crossed.
+- Defines XP thresholds for each level.
+- Triggers `level_up()` on Player when thresholds are crossed.
 
 ### 3. Combat Controller
 - Manages turn flow (attack, potion use, flee).
 - Ensures each input advances combat by only one turn.
+- **Combat Banner UX Fix:** Always display a combat banner when in battle to remind the player:
+  ```
+  --- Combat: Goblin (8 HP) ---
+  Your HP: 16 / 20
+  Available actions: attack, use [item], flee
+  ```
+- **Flee UX Fix:** After fleeing, print a summary message before showing the location:
+  ```
+  You attempt to flee...
+  You barely escape the Goblin!
+  You return to Luminaris.
+  ```
 
 ---
 
@@ -380,6 +166,8 @@ This section expands the AGENTS design for **Phase 2**, focusing on progression,
   - Text commands for actions (`look`, `inventory`, `equip sword`, `talk guard`, `quests`, `attack goblin`, `use healing potion`, `flee`, etc.).
 - **Output:**
   - Clear feedback when leveling up, completing quests, equipping items, receiving `on_accept` effects, or during combat turns.
+  - Combat banner shown each turn to provide context.
+  - Flee results explained before returning to the location view.
 
 ---
 
@@ -406,23 +194,24 @@ Active quests:
 Monsters: Goblin
 
 > attack goblin
+--- Combat Started ---
 You engage the Goblin in combat!
+Goblin HP: 10 | Your HP: 20
+Available actions: attack, use [item], flee
+
+> attack goblin
 You attack the Goblin for 3 damage.
 Goblin has 7 HP left.
 Goblin attacks you for 2 damage.
 You have 18 HP left.
 
-> use healing potion
-You use a Healing Potion and restore 5 HP.
-You now have 23 HP.
-
 > flee
 You attempt to flee...
-You escape back to Luminaris!
+You barely escape the Goblin!
+You return to Luminaris.
 
-> quests
-Active quests:
-- Clear the Woods (0/3 Goblins defeated)
+📍 Luminaris
+The weakened capital of Eryndral...
 ```
 
 ---
