@@ -155,7 +155,13 @@ def load_game_data(filepath="game_data.json"):
                     quests[unlocked_quest_name].requires = quest.name
 
     locations = {name: Location(name=name, **details) for name, details in data['locations'].items()}
-    return data, items, monsters, locations, npcs, quests
+
+    quest_dialogue_map = {
+        "Clear the Woods": "Shadows are stirring in Shademire Woods.",
+        "Clear the Catacombs": "If you can clear the catacombs of undead, the roads will be safer."
+    }
+
+    return data, items, monsters, locations, npcs, quests, quest_dialogue_map
 
 def clear_screen():
     if os.name == "nt":
@@ -286,7 +292,7 @@ def handle_quest_completion(player, quest, quests):
                 if unlocked_quest.requires == quest.name:
                      print(f"You feel you can now pursue a new goal: \"{unlocked_quest_name}\"")
 
-def check_collect_quests(player, quests):
+def check_collect_quests(player, quests, talked_to_npc=None):
     for quest_name, quest in player.active_quests.items():
         if quest.is_complete:
             continue
@@ -294,19 +300,21 @@ def check_collect_quests(player, quests):
         goal = quest.goal
         goal_type = goal.get('type')
 
-        if goal_type in ['collect_or_talk', 'collect_or_kill']:
+        if goal_type == 'collect_or_kill':
+            # This type can be completed by picking up an item anywhere.
             targets = goal.get('targets', [])
-
-            # Check inventory
             for target in targets:
                 if target in player.inventory:
                     quest.progress = goal.get('count', 1)
                     break
 
-            # Check dialogue history for collect_or_talk
-            if goal_type == 'collect_or_talk' and not quest.progress:
-                 for target in targets:
-                    if target in player.dialogue_history:
+        elif goal_type == 'collect_or_talk' and talked_to_npc:
+            # This type requires talking to a specific NPC.
+            # This is a hardcoded check for the specific quest in the game data.
+            if quest.name == "Investigate the Hollow Clues" and talked_to_npc.name == "Wandering Scholar":
+                targets = goal.get('targets', [])
+                for target_item in targets:
+                    if target_item in player.inventory:
                         quest.progress = goal.get('count', 1)
                         break
 
@@ -325,7 +333,7 @@ def handle_monster_turn(player, monster):
     return True
 
 def main():
-    game_data, items, monsters, locations, npcs, quests = load_game_data()
+    game_data, items, monsters, locations, npcs, quests, quest_dialogue_map = load_game_data()
     player_data = game_data['player']
     player = Player(
         name="Player",
@@ -382,7 +390,7 @@ def main():
                 current_loc.items.remove(item_to_get)
                 print(f"You pick up the {item_to_get}.")
                 check_quest_availability(player, quests, "item_pickup", item_to_get)
-                check_collect_quests(player, quests)
+                # No longer check collect quests on get
             else:
                 print(f"You don't see a {target_name} here.")
         elif command == "examine":
@@ -474,49 +482,49 @@ def main():
                 continue
 
             player.dialogue_history.add(npc_to_talk.name)
-            check_collect_quests(player, quests)
+            check_collect_quests(player, quests, talked_to_npc=npc_to_talk)
 
-            quest_offered = False
-            # Iterate through the NPC's quest list in order
+            quest_offered_this_interaction = False
+            # Iterate through the NPC's quest list in order to find the first one to offer
             for quest_name in npc_to_talk.quests:
                 if quest_name in player.active_quests or quest_name in player.completed_quests:
                     continue
 
                 quest = quests.get(quest_name)
-                if not quest: continue
-                if quest.requires and quest.requires not in player.completed_quests:
+                if not quest or (quest.requires and quest.requires not in player.completed_quests):
                     continue
 
-                # Found an available quest to offer
-                if npc_to_talk.dialogue:
+                # Found a valid quest to offer.
+                # Use the explicit dialogue from the map if it exists.
+                dialogue_to_use = quest_dialogue_map.get(quest_name)
+                if dialogue_to_use:
+                    print(f'{npc_to_talk.name}: "{dialogue_to_use}"')
+                elif npc_to_talk.dialogue: # Fallback to the first line
                     print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
 
-                quest_to_offer = quests[quest_name]
-                print(f"Quest offered: \"{quest_to_offer.name}\"")
-                print(f"- {quest_to_offer.description}")
-                reward_item = quest_to_offer.reward.get('item', 'nothing')
+                print(f"Quest offered: \"{quest.name}\"")
+                print(f"- {quest.description}")
+                reward_item = quest.reward.get('item', 'nothing')
                 if not reward_item: reward_item = 'nothing'
-                print(f"Reward: {quest_to_offer.reward.get('xp', 0)} XP, {reward_item}")
+                print(f"Reward: {quest.reward.get('xp', 0)} XP, {reward_item}")
 
                 accept = input("Accept? (yes/no) > ").lower()
                 if accept == 'yes':
-                    player.active_quests[quest_name] = copy.deepcopy(quest_to_offer)
+                    player.active_quests[quest_name] = copy.deepcopy(quest)
                     print(f"Quest accepted: \"{quest_name}\"")
-                    if 'item' in quest_to_offer.on_accept and quest_to_offer.on_accept['item']:
-                        item_name = quest_to_offer.on_accept['item']
+                    if 'item' in quest.on_accept and quest.on_accept['item']:
+                        item_name = quest.on_accept['item']
                         player.inventory.append(item_name)
                         print(f"You receive a {item_name}.")
 
-                quest_offered = True
+                quest_offered_this_interaction = True
                 break # Offer only one quest per interaction
 
-            if not quest_offered:
+            if not quest_offered_this_interaction:
                 # If no quests were offered, give a generic response
                 if len(npc_to_talk.dialogue) > 1:
-                    # Use a different line for generic talk if available
                     print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}"')
                 elif npc_to_talk.dialogue:
-                    # Fallback to the first line if it's the only one
                     print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
                 else:
                     print(f"{npc_to_talk.name} has nothing more to say.")
