@@ -436,8 +436,8 @@ def main():
                     break
             if npc_to_talk:
                 player.dialogue_history.add(npc_to_talk.name)
-                for line in npc_to_talk.dialogue:
-                    print(f'{npc_to_talk.name}: "{line}"')
+                if npc_to_talk.dialogue:
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
                 check_collect_quests(player, quests)
                 # Check for quests this NPC can offer
                 quests_to_offer_names = set()
@@ -471,6 +471,8 @@ def main():
                                 item_name = quest_to_offer.on_accept['item']
                                 player.inventory.append(item_name)
                                 print(f"You receive a {item_name}.")
+                        # Break after the first quest is offered and handled
+                        break
             else:
                 print(f"You don't see {target_name} here.")
         elif command == "equip":
