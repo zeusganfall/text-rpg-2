@@ -10,6 +10,7 @@ class Player:
         self.hp = hp
         self.max_hp = hp
         self.current_location = current_location
+        self.previous_location = current_location
         self.inventory = inventory if inventory is not None else []
         self.xp = 0
         self.level = 1
@@ -61,6 +62,7 @@ class Location:
         self.items = items if items is not None else []
         self.monsters = monsters if monsters is not None else []
         self.npcs = npcs if npcs is not None else []
+        self.active_monsters = list(self.monsters)
 
 class Item:
     def __init__(self, name, description):
@@ -167,12 +169,23 @@ def handle_look(location, npcs):
             print(f"  {i}. {direction.capitalize()} → {dest}")
 
     print(f"Items: {', '.join(location.items) if location.items else 'none'}")
-    print(f"Monsters: {', '.join(location.monsters) if location.monsters else 'none'}")
+    print(f"Monsters: {', '.join(location.active_monsters) if location.active_monsters else 'none'}")
 
     # Display NPCs
     location_npcs = [npc.name for npc in npcs.values() if npc.name in location.npcs]
     print(f"You see: {', '.join(location_npcs) if location_npcs else 'no one special'}")
 
+
+def handle_monster_turn(player, monster):
+    monster_attack = monster.attack_power
+    if player.equipped_armor:
+        monster_attack = max(0, monster_attack - player.equipped_armor.defense)
+    player.hp -= monster_attack
+    print(f"{monster.name} attacks you for {monster_attack} damage.")
+    print(f"You have {player.hp} HP left.")
+    if player.hp <= 0:
+        return False
+    return True
 
 # --- Game Loop ---
 def main():
@@ -191,12 +204,23 @@ def main():
         command = parts[0]
         target_name = " ".join(parts[1:]) if len(parts) > 1 else None
 
+        # Restrict commands during combat
+        if player.current_combat_target and command not in ["attack", "use", "flee", "inventory", "status", "quests", "quit", "help"]:
+            print("You can't do that while in combat!")
+            continue
+
         if command.isdigit():
             exit_index = int(command) - 1
             if 0 <= exit_index < len(current_loc.exits):
                 exit_dest = list(current_loc.exits.values())[exit_index]
+                player.previous_location = player.current_location
                 player.current_location = exit_dest
-                handle_look(locations[player.current_location], npcs)
+
+                # Respawn monsters on entering a new location
+                new_loc = locations[player.current_location]
+                new_loc.active_monsters = list(new_loc.monsters)
+
+                handle_look(new_loc, npcs)
             else:
                 print("Invalid exit number.")
 
@@ -278,7 +302,6 @@ def main():
                 for line in npc_to_talk.dialogue:
                     print(f'{npc_to_talk.name}: "{line}"')
 
-                # Quest offering
                 for quest_name in npc_to_talk.quests:
                     if quest_name not in player.active_quests and quest_name not in player.completed_quests:
                         quest_to_offer = quests[quest_name]
@@ -290,7 +313,6 @@ def main():
                         if accept == 'yes':
                             player.active_quests[quest_name] = quest_to_offer
                             print(f"Quest accepted: \"{quest_name}\"")
-                            # Handle on_accept
                             if 'item' in quest_to_offer.on_accept:
                                 item_name = quest_to_offer.on_accept['item']
                                 player.inventory.append(item_name)
@@ -369,8 +391,30 @@ def main():
                 player.inventory.remove(item_to_use.name)
                 print(f"You used the {item_to_use.name} and healed for {item_to_use.heal_amount} HP.")
                 print(f"You now have {player.hp}/{player.max_hp} HP.")
+
+                if player.current_combat_target:
+                    if not handle_monster_turn(player, player.current_combat_target):
+                        print("You have been defeated. Game over.")
+                        break
             else:
                 print("You can't use that.")
+
+        elif command == "flee":
+            if not player.current_combat_target:
+                print("You are not in combat.")
+                continue
+
+            monster = player.current_combat_target
+            print("You attempt to flee...")
+
+            # Monster gets a free attack as you flee
+            if not handle_monster_turn(player, monster):
+                break # Game over
+
+            player.current_location = player.previous_location
+            player.current_combat_target = None
+            print(f"You escape back to {player.current_location}!")
+            handle_look(locations[player.current_location], npcs)
 
         elif command == "attack":
             if not target_name:
@@ -379,16 +423,14 @@ def main():
 
             monster_to_attack = None
 
-            # Check if already in combat
             if player.current_combat_target:
                 if target_name.lower() != player.current_combat_target.name.lower():
                     print(f"You are already in combat with {player.current_combat_target.name}!")
                     continue
                 monster_to_attack = player.current_combat_target
             else:
-                # Start new combat
                 monster_name_to_attack = None
-                for monster_name in current_loc.monsters:
+                for monster_name in current_loc.active_monsters:
                     if target_name.lower() == monster_name.lower():
                         monster_name_to_attack = monster_name
                         break
@@ -397,29 +439,23 @@ def main():
                     print(f"You don't see a {target_name} here.")
                     continue
 
-                # Create a copy of the monster for combat
                 monster_prototype = monsters[monster_name_to_attack]
                 monster_to_attack = copy.deepcopy(monster_prototype)
 
                 player.current_combat_target = monster_to_attack
                 print(f"You engage the {monster_to_attack.name} in combat!")
 
-            # --- Execute one turn of combat ---
-            # Player attacks
             player_attack = player.get_attack_power()
             monster_to_attack.hp -= player_attack
             print(f"You attack the {monster_to_attack.name} for {player_attack} damage.")
 
             if monster_to_attack.hp <= 0:
-                # Monster defeated
                 defeated_monster = monster_to_attack
                 print(f"You defeated the {defeated_monster.name}!")
-                current_loc.monsters.remove(defeated_monster.name)
+                current_loc.active_monsters.remove(defeated_monster.name)
 
-                # Grant XP
                 player.gain_xp(defeated_monster.xp)
 
-                # Update Quests
                 for quest in player.active_quests.values():
                     if quest.goal['type'] == 'kill' and quest.goal['target'] == defeated_monster.name:
                         quest.progress += 1
@@ -434,7 +470,6 @@ def main():
                                 player.inventory.append(item_name)
                                 print(f"You received a {item_name} as a reward.")
 
-                # Handle completed quests
                 completed = [name for name, quest in player.active_quests.items() if quest.is_complete]
                 for name in completed:
                     player.completed_quests.append(name)
@@ -445,24 +480,12 @@ def main():
                         current_loc.items.append(loot_item)
                         print(f"The {defeated_monster.name} dropped a {loot_item}.")
 
-                # End combat
                 player.current_combat_target = None
             else:
-                # Monster is still alive
                 print(f"{monster_to_attack.name} has {monster_to_attack.hp} HP left.")
-
-                # Monster counter-attacks
-                monster_attack = monster_to_attack.attack_power
-                if player.equipped_armor:
-                    monster_attack = max(0, monster_attack - player.equipped_armor.defense)
-                player.hp -= monster_attack
-                print(f"{monster_to_attack.name} attacks you for {monster_attack} damage.")
-                print(f"You have {player.hp} HP left.")
-
-                if player.hp <= 0:
-                    print("You have been defeated. Game over.")
+                if not handle_monster_turn(player, monster_to_attack):
                     player.current_combat_target = None
-                    break # End game loop
+                    break # Game over
 
         elif command == "help":
             print_help()

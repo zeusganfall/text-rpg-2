@@ -348,7 +348,9 @@ This section expands the AGENTS design for **Phase 2**, focusing on progression,
     - Monster counterattacks (if alive) → print damage dealt and player’s HP left.
   - Player must type `attack [monster]` again for the next turn.
   - Combat ends when either the monster or player is defeated.
-- **Removed:** The line `A wild [monster] appears!` (monsters are already visible via `look`).
+- **Additional Combat Actions:**
+  - `use [potion]`: Restores HP instead of attacking.
+  - `flee`: Attempt to escape combat, returning to the previous location. May have a chance of failure or allow the monster one free attack.
 
 ---
 
@@ -365,17 +367,19 @@ This section expands the AGENTS design for **Phase 2**, focusing on progression,
 * Defines XP thresholds for each level.
 * Triggers `level_up()` on Player when thresholds are crossed.
 
+### 3. Combat Controller
+- Manages turn flow (attack, potion use, flee).
+- Ensures each input advances combat by only one turn.
+
 ---
 
 ## Input and Output Conventions (Summary)
 
-* **Input:**
-
-  * Numbers for navigation.
-  * Text commands for actions (`look`, `inventory`, `equip sword`, `talk guard`, `quests`, etc.).
-* **Output:**
-
-  * Clear feedback when leveling up, completing quests, equipping items, or receiving `on_accept` effects.
+- **Input:**
+  - Numbers for navigation.
+  - Text commands for actions (`look`, `inventory`, `equip sword`, `talk guard`, `quests`, `attack goblin`, `use healing potion`, `flee`, etc.).
+- **Output:**
+  - Clear feedback when leveling up, completing quests, equipping items, receiving `on_accept` effects, or during combat turns.
 
 ---
 
@@ -398,25 +402,27 @@ You receive a Healing Potion to aid you.
 Active quests:
 - Clear the Woods (0/3 Goblins defeated)
 
+📍 Shademire Woods
+Monsters: Goblin
+
 > attack goblin
-You strike the Goblin for 4 damage.
-Goblin has 6 HP left.
+You engage the Goblin in combat!
+You attack the Goblin for 3 damage.
+Goblin has 7 HP left.
 Goblin attacks you for 2 damage.
 You have 18 HP left.
 
-> attack goblin
-You defeat the Goblin! It drops a Goblin Ear.
-Quest progress updated: Clear the Woods (1/3)
+> use healing potion
+You use a Healing Potion and restore 5 HP.
+You now have 23 HP.
+
+> flee
+You attempt to flee...
+You escape back to Luminaris!
 
 > quests
 Active quests:
-- Clear the Woods (1/3 Goblins defeated)
-
-... (after defeating 3 Goblins) ...
-
-Quest Complete: Clear the Woods
-Reward gained: 50 XP, Healing Potion
-You leveled up! You are now Level 2.
+- Clear the Woods (0/3 Goblins defeated)
 ```
 
 ---
