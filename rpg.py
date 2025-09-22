@@ -19,7 +19,6 @@ class Player:
         self.equipped_armor = None
         self.active_quests = {}
         self.completed_quests = []
-        self.available_quests = []
         self.dialogue_history = set()
         self.current_combat_target = None
 
@@ -207,7 +206,7 @@ def handle_look(location, npcs, player, quests):
 
 def check_quest_availability(player, quests, trigger_type, trigger_ref):
     for quest_name, quest in quests.items():
-        if quest_name in player.active_quests or quest_name in player.completed_quests or quest_name in player.available_quests:
+        if quest_name in player.active_quests or quest_name in player.completed_quests:
             continue
         if not quest.start:
             continue
@@ -217,14 +216,35 @@ def check_quest_availability(player, quests, trigger_type, trigger_ref):
 
         unlocked = False
         if start_type == trigger_type:
+            # NPC quests are handled via talk, so we ignore them here.
+            if quest.start.get('type') == 'npc':
+                continue
             if isinstance(start_ref, list) and trigger_ref in start_ref:
                 unlocked = True
             elif trigger_ref == start_ref:
                 unlocked = True
 
         if unlocked:
-            player.available_quests.append(quest_name)
-            print(f"A new quest is available: \"{quest_name}\"")
+            # Auto-offer the quest
+            print(f"\nA new quest has become available: \"{quest.name}\"")
+            print(f"- {quest.description}")
+            reward_item = quest.reward.get('item', 'nothing')
+            if not reward_item: reward_item = 'nothing'
+            print(f"Reward: {quest.reward.get('xp', 0)} XP, {reward_item}")
+
+            accept = input("Accept? (yes/no) > ").lower()
+            if accept == 'yes':
+                player.active_quests[quest_name] = copy.deepcopy(quest)
+                print(f"Quest accepted: \"{quest_name}\"")
+                if 'item' in quest.on_accept and quest.on_accept['item']:
+                    item_name = quest.on_accept['item']
+                    player.inventory.append(item_name)
+                    print(f"You receive a {item_name}.")
+
+                # Immediately check if the quest is already complete
+                check_collect_quests(player, quests)
+            else:
+                print("You have declined the quest.")
 
 def print_combat_banner(player):
     monster = player.current_combat_target
