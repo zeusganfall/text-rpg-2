@@ -1,5 +1,12 @@
 {
   "player_start": "Luminaris",
+  "player": {
+    "hp": 20,
+    "max_hp": 20,
+    "attack_power": 3,
+    "level": 1,
+    "xp": 0
+  },
 
   "locations": {
     "Luminaris": {
@@ -10,23 +17,55 @@
       },
       "items": [],
       "monsters": [],
-      "npcs": ["Guard Captain"]
+      "npcs": ["Guard Captain", "Wandering Scholar"]
     },
     "Shademire Woods": {
-      "description": "Twisted trees block out the sun. The air feels heavy, and faint eyes glimmer in the dark.",
+      "description": "Twisted trees block out the sun. The air feels heavy, and faint eyes glimmer in the dark. Strange runes have begun to appear on trunks.",
       "exits": {
-        "south": "Luminaris"
+        "south": "Luminaris",
+        "east": "Sunken Swamp (Edge)"
       },
-      "items": [],
-      "monsters": ["Goblin", "Goblin", "Goblin"]
+      "items": ["Old Scroll"],
+      "monsters": ["Shadow-Touched Goblin", "Shadow-Touched Goblin", "Shadow-Touched Goblin", "Cultist"],
+      "npcs": []
     },
     "Crumbling Catacombs": {
-      "description": "Ancient stone tunnels filled with stale air. Bones crunch beneath your feet.",
+      "description": "Ancient stone tunnels filled with stale air. Bones crunch beneath your feet. A stair leads deeper into the earth.",
       "exits": {
-        "up": "Luminaris"
+        "up": "Luminaris",
+        "down": "Crumbling Catacombs - Depths"
       },
-      "items": ["Rusted Sword"],
-      "monsters": ["Skeleton"]
+      "items": ["Rusted Sword", "Leather Armor"],
+      "monsters": ["Skeleton"],
+      "npcs": []
+    },
+    "Crumbling Catacombs - Depths": {
+      "description": "Deeper chambers of the catacombs. The air is colder and the bones are fresher — something undead stirs here.",
+      "exits": {
+        "up": "Crumbling Catacombs"
+      },
+      "items": [],
+      "monsters": ["Skeleton", "Skeleton", "Undead Wight"],
+      "npcs": []
+    },
+    "Sunken Swamp (Edge)": {
+      "description": "A soggy, reeking fringe of the Sunken Swamp. The ground squelches underfoot and strange lights drift between the reeds.",
+      "exits": {
+        "west": "Shademire Woods",
+        "in": "Sunken Swamp"
+      },
+      "items": [],
+      "monsters": [],
+      "npcs": []
+    },
+    "Sunken Swamp": {
+      "description": "A corrupted marsh where the soil drinks the light. Twisted plants and bog pools hide creatures and ruins of old rituals.",
+      "exits": {
+        "out": "Sunken Swamp (Edge)"
+      },
+      "items": ["Captured Letter"],
+      "monsters": ["Bog Horror", "Corrupted Bog Beast"],
+      "npcs": []
     }
   },
 
@@ -47,27 +86,90 @@
       "heal_amount": 10
     },
     "Goblin Ear": {
-        "type": "Item",
-        "description": "A gruesome trophy."
+      "type": "Item",
+      "description": "A gruesome trophy."
     },
     "Bone Fragment": {
-        "type": "Item",
-        "description": "A piece of a skeleton."
+      "type": "Item",
+      "description": "A piece of a skeleton."
+    },
+    "Cultist Note": {
+      "type": "Readable",
+      "description": "A folded note with inked runes. It mentions a 'Hollow Spire' and strange rituals.",
+      "lore_text": "The cult gathers at the Hollow Spire. They speak of a void beyond the Veil and the need to 'unmake the throne of light.'"
+    },
+    "Old Scroll": {
+      "type": "Readable",
+      "description": "A brittle scroll, stained with age. Its script is faded but legible.",
+      "lore_text": "This scroll details the Celestial Veil's wards and mentions a scholar who once mapped weaknesses in the barrier. A name repeated in the margins: 'Elenya.'"
+    },
+    "Captured Letter": {
+      "type": "Readable",
+      "description": "A blood-smudged letter found in the swamp. The handwriting is hurried and fearful.",
+      "lore_text": "To anyone who finds this—Elenya has been taken. They dragged her toward the Hollow Spire. Pray the Veil holds..."
+    },
+    "Lore Fragment": {
+      "type": "Item",
+      "description": "A torn scrap of a document mentioning the Celestial Veil.",
+      "notes": "Collectible lore used to piece together Elenya's story."
     }
   },
 
   "monsters": {
-    "Goblin": {
+    "Shadow-Touched Goblin": {
       "hp": 10,
       "attack_power": 2,
       "loot": ["Goblin Ear"],
-      "xp": 10
+      "xp": 12,
+      "notes": "A goblin warped by shadow; tied to Malveth's corruption."
+    },
+    "Goblin": {
+      "hp": 8,
+      "attack_power": 2,
+      "loot": ["Goblin Ear"],
+      "xp": 8,
+      "notes": "A baseline goblin (legacy). Consider replacing with Shadow-Touched Goblin in later content."
     },
     "Skeleton": {
       "hp": 12,
       "attack_power": 3,
       "loot": ["Bone Fragment"],
       "xp": 15
+    },
+    "Undead Wight": {
+      "hp": 18,
+      "attack_power": 4,
+      "loot": ["Bone Fragment", "Lore Fragment"],
+      "xp": 30,
+      "notes": "A stronger undead found in the catacomb depths. Drops lore fragments occasionally."
+    },
+    "Cultist": {
+      "hp": 9,
+      "attack_power": 3,
+      "loot": ["Cultist Note"],
+      "xp": 18,
+      "notes": "A minor cultist who serves Malveth's followers; drops a note that unlocks lore."
+    },
+    "Cultist Lieutenant": {
+      "hp": 22,
+      "attack_power": 5,
+      "loot": ["Cultist Note", "Lore Fragment"],
+      "xp": 60,
+      "notes": "A dangerous cult leader who coordinates rituals. Defeating them is a story quest."
+    },
+    "Bog Horror": {
+      "hp": 14,
+      "attack_power": 3,
+      "loot": ["Lore Fragment"],
+      "xp": 25,
+      "notes": "A corrupted swamp creature, bound to the Sunken Swamp's rot."
+    },
+    "Corrupted Bog Beast": {
+      "hp": 20,
+      "attack_power": 5,
+      "loot": ["Lore Fragment"],
+      "xp": 40,
+      "notes": "A tougher signature monster of the Sunken Swamp."
     }
   },
 
@@ -75,27 +177,98 @@
     "Guard Captain": {
       "dialogue": [
         "Shadows are stirring in Shademire Woods.",
-        "We need brave souls to protect the kingdom."
+        "We need brave souls to protect the kingdom.",
+        "If you can clear the catacombs of undead, the roads will be safer."
       ],
-      "quests": ["Clear the Woods"]
+      "quests": ["Clear the Woods", "Clear the Catacombs"]
+    },
+    "Wandering Scholar": {
+      "dialogue": [
+        "There are fragments of old knowledge hidden across Eryndral.",
+        "If you find a cultist's note or an old scroll, bring it to me — I may explain it.",
+        "Ask me about 'Elenya', 'Hollow Spire', or 'Veil' and I will share what I know."
+      ],
+      "quests": ["Investigate the Hollow Clues"]
     }
   },
 
   "quests": {
     "Clear the Woods": {
-      "description": "Defeat 3 Goblins in Shademire Woods.",
+      "description": "Defeat 3 Shadow-Touched Goblins in Shademire Woods.",
+      "start": { "type": "npc", "ref": "Guard Captain" },
       "goal": {
         "type": "kill",
-        "target": "Goblin",
+        "target": "Shadow-Touched Goblin",
         "count": 3
       },
       "reward": {
         "xp": 50,
-        "item": "Healing Potion"
+        "item": null
       },
       "on_accept": {
         "item": "Healing Potion"
       }
+    },
+    "Investigate the Hollow Clues": {
+      "description": "Bring a Cultist Note or the Old Scroll to the Wandering Scholar in Luminaris.",
+      "start": { "type": "item_or_npc", "ref": ["Cultist Note", "Old Scroll", "Wandering Scholar"] },
+      "goal": {
+        "type": "collect_or_talk",
+        "targets": ["Cultist Note", "Old Scroll", "Captured Letter"],
+        "count": 1
+      },
+      "reward": {
+        "xp": 30,
+        "item": null
+      },
+      "on_accept": {}
+    },
+    "Clear the Catacombs": {
+      "description": "Eliminate undead in the Crumbling Catacombs and its Depths (3 Skeletons or 1 Undead Wight).",
+      "start": { "type": "location_enter", "ref": "Crumbling Catacombs" },
+      "goal": {
+        "type": "kill",
+        "target": "Skeleton",
+        "count": 3
+      },
+      "alternate_goal": {
+        "type": "kill",
+        "target": "Undead Wight",
+        "count": 1
+      },
+      "reward": {
+        "xp": 70,
+        "item": "Leather Armor"
+      },
+      "on_accept": {}
+    },
+    "Defeat the Cultist Lieutenant": {
+      "description": "Find and defeat the Cultist Lieutenant in Shademire Woods (may appear after investigating clues).",
+      "start": { "type": "npc", "ref": "Wandering Scholar" },
+      "goal": {
+        "type": "kill",
+        "target": "Cultist Lieutenant",
+        "count": 1
+      },
+      "reward": {
+        "xp": 120,
+        "item": "Lore Fragment"
+      },
+      "on_accept": {}
+    },
+    "Investigate the Sunken Swamp": {
+      "description": "Venture into the Sunken Swamp and recover evidence of ritual corruption (Collect Captured Letter or Lore Fragment).",
+      "start": { "type": "location_enter", "ref": "Sunken Swamp (Edge)" },
+      "goal": {
+        "type": "collect_or_kill",
+        "targets": ["Captured Letter", "Lore Fragment"],
+        "count": 1
+      },
+      "reward": {
+        "xp": 80,
+        "item": null
+      },
+      "on_accept": {}
     }
   }
 }
