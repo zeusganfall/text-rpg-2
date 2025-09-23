@@ -318,3 +318,134 @@ To avoid player confusion about where quests start, use a small `start` block in
 
 (End of Phase 3 additions.)
 
+---
+
+## Contextual & Sequential NPC Dialogue (`talk` behavior)
+
+- `talk [npc]` will now offer quests **contextually** and **one at a time**:
+  1. The game iterates the NPC's `quests` array (order defined in `game_data.json`) and finds the first quest that is **available** (not started/completed and whose `start` condition matches the current context).
+  2. If the quest object has a `lead_in` string, that line prints before offering the quest. Otherwise, fall back to a generic dialogue line from `npc.dialogue`.
+  3. After offering that one quest (with its lead-in), the `talk` interaction ends — the NPC will not offer additional quests in the same interaction.
+
+- If the NPC has no available quests, print a generic `npc.dialogue` line (rotate or pick randomly).
+- NPCs can vary the lead-in based on the player's inventory or quest progress by setting conditional `lead_in` variations in future iterations (out of scope for Phase 3).
+
+### JSON convention (recommended)
+Add an optional `lead_in` field to quest objects. Example:
+
+```json
+"Clear the Woods": {
+  "description": "Defeat 3 Shadow-Touched Goblins in Shademire Woods.",
+  "start": { "type": "npc", "ref": "Guard Captain" },
+  "lead_in": "Shadows are stirring near the woods — we need help!",
+  "goal": { "type": "kill", "target": "Shadow-Touched Goblin", "count": 3 }
+}
+```
+
+### Implementation notes for the `talk` refactor
+- Iterate `npc.quests` in order. For each quest `q`:
+  - Skip if `player.has_started(q)` or `player.has_completed(q)`.
+  - Check if `q.start` conditions match current context (e.g., `npc` type quests only offered when talking to that NPC).
+  - If available: print `q.lead_in` if present, otherwise print NPC generic line. Offer quest (`accept [quest]`) and **end** the `talk` interaction.
+- Keep backward compatibility: if no `lead_in`, use existing `npc.dialogue`.
+
+---
+
+(End of Contextual Dialogue additions.)
+
+---
+
+## Healing Sources & Mechanics (Phase 3 Balance)
+
+To make Phase 3 survivable without forcing a single "correct" path, add multiple, small, renewable healing sources. These are intentionally simple to implement and data-driven so your coding agent can pick them up from `game_data.json`.
+
+### 1. Healing NPC (Temple Cleric)
+- **Location:** Luminaris
+- **Role:** Offers a `heal` service. Example JSON fields:
+  ```json
+  "Temple Cleric": {
+    "dialogue": ["May the light mend you, traveler."],
+    "services": {"heal": {"cost": 0, "type": "full"}},
+    "quests": []
+  }
+  ```
+- **Behavior:** `talk Temple Cleric` reveals the service; `heal` or choosing heal restores HP (full if `type==full`, or numeric amount). If `cost > 0`, require gold or an item.
+
+### 2. Healing Station / Checkpoint
+- **Location flag example:**
+  ```json
+  "Crumbling Catacombs": {
+    "healing_station": {"type": "partial", "amount": 10, "uses": 1}
+  }
+  ```
+- **Behavior:** At locations with `healing_station`, `rest` or `use station` will restore HP by `amount` or to full depending on `type`. `uses` can limit re-use.
+
+### 3. Monster Healing Drops (small chance)
+- Add optional `drop_table` entries to monsters to allow non-deterministic potion drops. Example:
+  ```json
+  "Cultist": {
+    "loot": ["Cultist Note"],
+    "drop_table": [{"item":"Healing Potion","chance":0.10}]
+  }
+  ```
+- **Behavior:** On kill, roll against `drop_table`. If success, add healing potion to loot. This adds forgiving randomness without guaranteed excess supplies.
+
+### 4. Level-Up Full Heal (already present)
+- Your current `check_level_up` sets `self.hp = self.max_hp`. Keep this — it's a core pacing mechanic.
+
+### 5. Optional: Passive Regeneration in Safe Zones
+- Locations flagged `safe_zone: true` slowly regenerate HP (e.g., +1 HP per minute / per rest action). This is optional but smooths small chip damage.
+
+---
+
+## AGENTS.md: Commands for Healing (append these to the Player Interaction section)
+
+### Healing Commands
+- `heal` — Use when at a Healing NPC or Healing Station. If at an NPC with a `heal` service, prompt cost/confirmation.
+- `rest` — Use at a healing station/`safe_zone` to recover the configured amount. May consume `uses`.
+- `hand_in [item] to [npc]` — can also be used to pay or barter for healing if NPC requires an item.
+
+### NPC Services
+- NPCs can declare a `services` map in JSON, e.g. `{"heal": {"cost": 5, "type": "full"}}`.
+- The parser should show available services when `talk [npc]` is used and allow `use service_name` or `heal` shorthand.
+
+### Monster Drops
+- Parser and loot resolution should support `drop_table` with probabilistic drops. Document that `drop_table` is optional.
+
+---
+
+## Suggested JSON Patches (copy into `game_data.json`)
+
+Below are small, ready-to-paste patches. Merge them into the corresponding `npcs`, `locations`, and `monsters` sections.
+
+1) Add Temple Cleric NPC (Luminaris):
+```json
+"Temple Cleric": {
+  "dialogue": ["May the light mend you, traveler.", "I can restore your wounds, for free or coin depending on your need."],
+  "services": {"heal": {"cost": 0, "type": "full"}},
+  "quests": []
+}
+```
+
+2) Mark Crumbling Catacombs as a single-use partial healing station (checkpoint):
+```json
+"Crumbling Catacombs": {
+  "healing_station": {"type": "partial", "amount": 10, "uses": 1}
+}
+```
+
+3) Add drop_table to a few monsters (small chance):
+```json
+"Cultist": { "drop_table": [{"item": "Healing Potion", "chance": 0.10}] },
+"Shadow-Touched Goblin": { "drop_table": [{"item": "Healing Potion", "chance": 0.03}] },
+"Bog Horror": { "drop_table": [{"item": "Healing Potion", "chance": 0.12}] }
+```
+
+---
+
+## Implementation Notes for the Coding Agent
+- `heal` and `rest` should be simple commands that check location/NPC `services` or `healing_station` flags and modify `player.hp` accordingly.
+- `drop_table` handling should be optional fallback logic: if `drop_table` exists, roll a random float in `[0,1)` for each entry and add item on success.
+- Document the new JSON fields in `AGENTS.md` (as above) for future reference.
+
+---
