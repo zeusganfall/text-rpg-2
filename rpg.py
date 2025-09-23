@@ -118,7 +118,7 @@ class NPC:
         self.services = services if services is not None else {}
 
 class Quest:
-    def __init__(self, name, description, goal, reward, start=None, alternate_goal=None, on_accept=None, unlocks=None):
+    def __init__(self, name, description, goal, reward, start=None, alternate_goal=None, on_accept=None, unlocks=None, lead_in=None, **kwargs):
         self.name = name
         self.description = description
         self.goal = goal
@@ -130,6 +130,7 @@ class Quest:
         self.requires = None # New attribute for prerequisites
         self.progress = 0
         self.is_complete = False
+        self.lead_in = lead_in
 
 def load_game_data(filepath="game_data.json"):
     with open(filepath, 'r') as f:
@@ -233,6 +234,10 @@ def show_location(location, npcs, player, quests):
         else:
             location_npcs.append(npc.name)
     print(f"You see: {', '.join(location_npcs) if location_npcs else 'no one special'}")
+
+    # Add a hint for healing stations
+    if hasattr(location, 'healing_station') and location.healing_station and location.healing_station.get('uses', 0) > 0:
+        print("🔹 You can `rest` here to heal.")
 
 def handle_look(location, npcs, player, quests):
     clear_screen()
