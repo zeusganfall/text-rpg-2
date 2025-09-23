@@ -215,3 +215,106 @@ The weakened capital of Eryndral...
 ```
 
 ---
+
+## Phase 3 Additions
+
+### Location Updates
+- Locations can now have **sub-areas** (e.g., `Crumbling Catacombs - Depths`).
+- Each location may feature **unique monsters tied to lore themes** (e.g., Bog Horror in Sunken Swamp).
+
+### Item Updates
+- **Readable (Subclass of Item):**
+  - Attribute: `lore_text` (string, full lore passage shown when examined).
+  - Behavior: Using `examine [item]` reveals lore. May unlock new quests or NPC dialogue topics.
+
+### NPC Updates
+- NPCs now support **topic-based dialogue**:
+  - Command: `ask [npc] [topic]`.
+  - Topics can expand lore or unlock quests.
+- NPCs can act as **quest gates**, requiring the player to present items (e.g., Cultist Note) before unlocking new quests.
+
+### Quest Updates
+- New goal types supported:
+  - `collect_or_talk` → hand in an item or speak to NPC.
+  - `collect_or_kill` → either collect item(s) or defeat specific monsters.
+  - `alternate_goal` → complete one of multiple possible objectives.
+- Quests can now **escalate the story**, unlocking further quests upon completion.
+- **Quest Start Indicator:** Each quest now has a `start` field in `game_data.json` specifying how the quest becomes available:
+  - `npc` → talk to an NPC to receive quest.
+  - `location_enter` → entering a location triggers availability.
+  - `item_pickup` → picking up/examining an item makes quest available.
+  - `item_or_npc` → presenting an item or talking to a specific NPC starts quest.
+  - `auto` → automatically available under certain conditions.
+- When available, NPCs are marked with `(!)` in the location view, and the game notifies the player of new quests.
+
+### System Tools Updates
+- **Lore Integration System**
+  - Links `Readable` items and NPC dialogue to quest progression.
+  - Examining an item or asking about a topic may update quest tracker.
+- **Quest Chaining**
+  - Completing one story quest may trigger the availability of the next in sequence.
+
+---
+
+### Sample Phase 3 Flow
+```
+📍 Crumbling Catacombs - Depths
+The deeper tunnels reek of decay. Shadows cling to the walls.
+Monsters: Undead Wight
+
+> attack wight
+--- Combat: Undead Wight (18 HP) ---
+Your HP: 20/20
+Available actions: attack, use [item], flee
+
+> examine captured letter
+The bloodied letter reads: "Elenya has been taken... they dragged her to the Hollow Spire." A chill grips you.
+
+> talk wandering scholar
+Scholar: "That letter confirms it. Malveth holds the princess in the Hollow Spire. Ask me about 'Elenya' if you wish to know more."
+
+> ask scholar elenya
+Scholar: "Elenya is the keystone of the Veil. Without her, the kingdom will fall."
+
+> quests
+Active quests:
+- Investigate the Sunken Swamp (0/1 evidence found)
+- Clear the Catacombs (1/3 Skeletons defeated)
+```
+
+---
+
+## Quest Start Conventions (Phase 3)
+To avoid player confusion about where quests start, use a small `start` block inside each quest in `game_data.json`. The engine will use `start.type` to show indicators and offer quests. The supported values and behavior:
+
+- `npc` — quest is offered by an NPC via `talk [npc]`. The NPC will display `(!)` in the `look` view when the quest is available.
+  - `start`: `{ "type": "npc", "ref": "Guard Captain" }`
+- `location_enter` — entering the location notifies the player a quest is available and places it in *available quests*.
+  - `start`: `{ "type": "location_enter", "ref": "Crumbling Catacombs" }`
+- `item_pickup` — picking up a specific item notifies player of a nearby quest (optionally auto-offer).
+  - `start`: `{ "type": "item_pickup", "ref": "Old Scroll" }`
+- `item_or_npc` — handing in or presenting an item to an NPC (or talking about it) triggers the quest start.
+  - `start`: `{ "type": "item_or_npc", "ref": ["Cultist Note", "Old Scroll", "Wandering Scholar"] }`
+- `auto` — quest auto-accepts when certain conditions are met (use sparingly).
+
+### Engine Behavior Rules
+- On location load: notify and add `location_enter` quests to available list.
+- On `look`: show `NPC (!) `marker when `npc` start exists for that NPC and the player hasn't started/completed the quest.
+- On `examine` of a Readable with matching `item_pickup` or `item_or_npc` start: notify player and add to available quests.
+- On `talk [npc]`: if NPC offers `npc`-type quests, allow `accept [quest]`.
+- On `hand_in [item] to [npc]`: satisfy `item_or_npc`/`collect_or_talk` starts/goal logic.
+
+### Example `start` usage
+```
+"Clear the Woods": {
+  "description": "Defeat 3 Shadow-Touched Goblins in Shademire Woods.",
+  "start": { "type": "npc", "ref": "Guard Captain" },
+  "goal": { "type": "kill", "target": "Shadow-Touched Goblin", "count": 3 },
+  "reward": { "xp": 50 }
+}
+```
+
+---
+
+(End of Phase 3 additions.)
+
