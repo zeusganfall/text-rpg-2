@@ -218,18 +218,8 @@ def show_location(location, npcs, player, quests):
     location_npcs = []
     for npc_name in location.npcs:
         npc = npcs[npc_name]
-        has_quest = False
-        # Check if the NPC has any quests in their list that the player can take
-        for quest_name in npc.quests:
-            quest = quests.get(quest_name)
-            if not quest: continue
-            # Check for prerequisites
-            if quest.requires and quest.requires not in player.completed_quests:
-                continue
-            if quest_name not in player.active_quests and quest_name not in player.completed_quests:
-                has_quest = True
-                break
-        if has_quest:
+        _, quest_to_offer = resolve_npc_dialogue(npc, player, quests)
+        if quest_to_offer:
             location_npcs.append(f"{npc.name} (!)")
         else:
             location_npcs.append(npc.name)
@@ -548,27 +538,15 @@ def main():
             else:
                 print("There is nowhere to rest here.")
         elif command == "accept":
-            # Find the quest giver
-            quest_giver = None
-            for npc in npcs.values():
-                if target_name in npc.quests:
-                    quest_giver = npc
-                    break
-
-            if not quest_giver:
-                print("That quest does not exist.")
-                continue
-
-            # Check if the quest can be offered
-            dialogue, offer = resolve_npc_dialogue(quest_giver, player, quests)
-            if offer == target_name:
-                quest = quests[target_name]
-                player.active_quests[target_name] = copy.deepcopy(quest)
-                print(f"Quest accepted: \"{target_name}\"")
+            if player.quest_offer and player.quest_offer.lower() == target_name:
+                quest = quests[player.quest_offer]
+                player.active_quests[player.quest_offer] = copy.deepcopy(quest)
+                print(f"Quest accepted: \"{player.quest_offer}\"")
                 if 'item' in quest.on_accept and quest.on_accept['item']:
                     item_name = quest.on_accept['item']
                     player.inventory.append(item_name)
                     print(f"You receive a {item_name}.")
+                player.quest_offer = None
             else:
                 print("You cannot accept that quest right now.")
         elif command == "talk":
@@ -586,9 +564,15 @@ def main():
                 continue
 
             dialogue, quest_to_offer = resolve_npc_dialogue(npc_to_talk, player, quests)
+            player.quest_offer = quest_to_offer
             print(f'{npc_to_talk.name}: "{dialogue}"')
             if quest_to_offer:
+                quest = quests[quest_to_offer]
                 print(f"Quest offered: \"{quest_to_offer}\"")
+                print(f"- {quest.description}")
+                reward_item = quest.reward.get('item', 'nothing')
+                if not reward_item: reward_item = 'nothing'
+                print(f"Reward: {quest.reward.get('xp', 0)} XP, {reward_item}")
         elif command == "equip":
             if not target_name:
                 print("Equip what?")
