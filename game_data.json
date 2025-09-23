@@ -192,7 +192,7 @@
         "If you find a cultist's note or an old scroll, bring it to me — I may explain it.",
         "Ask me about 'Elenya', 'Hollow Spire', or 'Veil' and I will share what I know."
       ],
-      "quests": ["Investigate the Hollow Clues"]
+      "quests": ["Investigate the Hollow Clues", "Defeat the Cultist Lieutenant"]
     },
     "Temple Cleric": {
       "dialogue": [

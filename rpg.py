@@ -21,6 +21,7 @@ class Player:
         self.completed_quests = []
         self.dialogue_history = set()
         self.current_combat_target = None
+        self.test_mode = {}
 
     def get_attack_power(self):
         total_power = self.attack_power
@@ -118,7 +119,7 @@ class NPC:
         self.services = services if services is not None else {}
 
 class Quest:
-    def __init__(self, name, description, goal, reward, start=None, alternate_goal=None, on_accept=None, unlocks=None):
+    def __init__(self, name, description, goal, reward, start=None, alternate_goal=None, on_accept=None, unlocks=None, lead_in=None, **kwargs):
         self.name = name
         self.description = description
         self.goal = goal
@@ -130,6 +131,7 @@ class Quest:
         self.requires = None # New attribute for prerequisites
         self.progress = 0
         self.is_complete = False
+        self.lead_in = lead_in
 
 def load_game_data(filepath="game_data.json"):
     with open(filepath, 'r') as f:
@@ -307,7 +309,7 @@ def handle_quest_completion(player, quest, quests):
                      print(f"You feel you can now pursue a new goal: \"{unlocked_quest_name}\"")
 
 def check_collect_quests(player, quests, talked_to_npc=None):
-    for quest_name, quest in player.active_quests.items():
+    for quest_name, quest in list(player.active_quests.items()):
         if quest.is_complete:
             continue
 
@@ -334,6 +336,11 @@ def check_collect_quests(player, quests, talked_to_npc=None):
 
         if quest.progress >= quest.goal.get('count', 1) and not quest.is_complete:
             handle_quest_completion(player, quest, quests)
+            completed = [name for name, q in player.active_quests.items() if q.is_complete]
+            for name in completed:
+                if name == quest_name:
+                    player.completed_quests.append(name)
+                    del player.active_quests[name]
 
 def handle_monster_turn(player, monster):
     monster_attack = monster.attack_power
@@ -345,6 +352,235 @@ def handle_monster_turn(player, monster):
     if player.hp <= 0:
         return False
     return True
+
+def handle_attack(player, target_name, game_state):
+    locations = game_state['locations']
+    monsters = game_state['monsters']
+    quests = game_state['quests']
+    current_loc = locations[player.current_location]
+
+    if not target_name:
+        print("Attack what?")
+        return
+
+    monster_to_attack = None
+    if player.current_combat_target:
+        if target_name.lower() != player.current_combat_target.name.lower():
+            print(f"You are already in combat with {player.current_combat_target.name}!")
+            return
+        monster_to_attack = player.current_combat_target
+    else:
+        monster_name_to_attack = None
+        for monster_name in current_loc.active_monsters:
+            if target_name.lower() == monster_name.lower():
+                monster_name_to_attack = monster_name
+                break
+        if not monster_name_to_attack:
+            print(f"You don't see a {target_name} here.")
+            return
+        monster_prototype = monsters[monster_name_to_attack]
+        monster_to_attack = copy.deepcopy(monster_prototype)
+        player.current_combat_target = monster_to_attack
+        print("--- Combat Started ---")
+        print(f"You engage the {monster_to_attack.name} in combat!")
+
+    player_attack = player.get_attack_power()
+    monster_to_attack.hp -= player_attack
+    print(f"You attack the {monster_to_attack.name} for {player_attack} damage.")
+
+    if player.test_mode.get("insta_kill"):
+        monster_to_attack.hp = 0
+
+    if monster_to_attack.hp <= 0:
+        defeated_monster = monster_to_attack
+        print(f"You defeated the {defeated_monster.name}!")
+        if defeated_monster.name in current_loc.active_monsters:
+            current_loc.active_monsters.remove(defeated_monster.name)
+        player.gain_xp(defeated_monster.xp)
+        for quest_name, quest in list(player.active_quests.items()):
+            goal_met = False
+            if quest.alternate_goal and quest.alternate_goal.get('type') == 'kill' and quest.alternate_goal.get('target') == defeated_monster.name:
+                quest.progress = quest.goal.get('count', 1)
+                goal_met = True
+            elif quest.goal.get('type') == 'kill' and quest.goal.get('target') == defeated_monster.name:
+                quest.progress += 1
+
+            if quest.progress >= quest.goal.get('count', 1) and not quest.is_complete:
+                goal_met = True
+
+            if goal_met:
+                handle_quest_completion(player, quest, quests)
+                completed = [name for name, q in player.active_quests.items() if q.is_complete]
+                for name in completed:
+                    if name == quest_name:
+                        player.completed_quests.append(name)
+                        del player.active_quests[name]
+
+        if defeated_monster.loot:
+            for loot_item in defeated_monster.loot:
+                current_loc.items.append(loot_item)
+                print(f"The {defeated_monster.name} dropped a {loot_item}.")
+        if defeated_monster.drop_table:
+            for drop in defeated_monster.drop_table:
+                if random.random() < drop['chance']:
+                    current_loc.items.append(drop['item'])
+                    print(f"The {defeated_monster.name} also dropped a {drop['item']}!")
+
+        # After loot is dropped, check if any collection quests are completed
+        check_collect_quests(player, quests)
+
+        player.current_combat_target = None
+    else:
+        print(f"{monster_to_attack.name} has {monster_to_attack.hp} HP left.")
+        if not handle_monster_turn(player, monster_to_attack):
+            player.current_combat_target = None
+
+def handle_rest(player, locations):
+    current_loc = locations[player.current_location]
+    if hasattr(current_loc, 'healing_station') and current_loc.healing_station:
+        station = current_loc.healing_station
+        if station['uses'] > 0:
+            if station['type'] == 'full':
+                player.heal(player.max_hp)
+            else:
+                player.heal(station['amount'])
+            station['uses'] -= 1
+            if station['uses'] == 0:
+                print("The healing station is now depleted.")
+        else:
+            print("This healing station has already been used.")
+    else:
+        print("There is nowhere to rest here.")
+
+def handle_equip(player, target_name, items):
+    if not target_name:
+        print("Equip what?")
+        return
+    item_to_equip = None
+    for item_name in player.inventory:
+        if target_name.lower() == item_name.lower():
+            item_to_equip = items[item_name]
+            break
+    if item_to_equip:
+        if isinstance(item_to_equip, Weapon):
+            if player.equipped_weapon:
+                player.inventory.append(player.equipped_weapon.name)
+            player.equipped_weapon = item_to_equip
+            player.inventory.remove(item_to_equip.name)
+            print(f"You equipped the {item_to_equip.name}.")
+        elif isinstance(item_to_equip, Armor):
+            if player.equipped_armor:
+                player.inventory.append(player.equipped_armor.name)
+            player.equipped_armor = item_to_equip
+            player.inventory.remove(item_to_equip.name)
+            print(f"You equipped the {item_to_equip.name}.")
+        else:
+            print("You can't equip that.")
+    else:
+        print(f"You don't have a {target_name}.")
+
+def handle_get(player, target_name, game_state):
+    locations = game_state['locations']
+    quests = game_state['quests']
+    current_loc = locations[player.current_location]
+    if not target_name:
+        print("Get what?")
+        return
+    item_to_get = None
+    for item_name in current_loc.items:
+        if target_name.lower() == item_name.lower():
+            item_to_get = item_name
+            break
+    if item_to_get:
+        player.inventory.append(item_to_get)
+        current_loc.items.remove(item_to_get)
+        print(f"You pick up the {item_to_get}.")
+        check_quest_availability(player, quests, "item_pickup", item_to_get)
+        check_collect_quests(player, quests)
+    else:
+        print(f"You don't see a {target_name} here.")
+
+def handle_use(player, target_name, game_state):
+    items = game_state['items']
+    if not target_name:
+        print("Use what?")
+        return
+    item_to_use = None
+    for item_name in player.inventory:
+        if target_name.lower() == item_name.lower():
+            item_to_use = items[item_name]
+            break
+    if item_to_use and isinstance(item_to_use, Potion):
+        print(f"You use the {item_to_use.name}.")
+        player.heal(item_to_use.heal_amount)
+        player.inventory.remove(item_to_use.name)
+        if player.current_combat_target:
+            if not handle_monster_turn(player, player.current_combat_target):
+                pass
+    else:
+        print("You can't use that.")
+
+def handle_talk(player, target_name, locations, npcs, quests, quest_dialogue_map):
+    current_loc = locations[player.current_location]
+    if not target_name:
+        print("Talk to whom?")
+        return
+
+    npc_to_talk = None
+    for npc_name in current_loc.npcs:
+        if target_name.lower() == npc_name.lower():
+            npc_to_talk = npcs[npc_name]
+            break
+
+    if not npc_to_talk:
+        print(f"You don't see {target_name} here.")
+        return
+
+    player.dialogue_history.add(npc_to_talk.name)
+    check_collect_quests(player, quests, talked_to_npc=npc_to_talk)
+
+    quest_offered_this_interaction = False
+    for quest_name in npc_to_talk.quests:
+        if quest_name in player.active_quests or quest_name in player.completed_quests:
+            continue
+
+        quest = quests.get(quest_name)
+        if not quest or (quest.requires and quest.requires not in player.completed_quests):
+            continue
+
+        dialogue_to_use = quest.lead_in or quest_dialogue_map.get(quest_name)
+        if dialogue_to_use:
+            print(f'{npc_to_talk.name}: "{dialogue_to_use}"')
+        elif npc_to_talk.dialogue:
+            print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
+
+        print(f"Quest offered: \"{quest.name}\"")
+        print(f"- {quest.description}")
+        reward_item = quest.reward.get('item', 'nothing')
+        if not reward_item: reward_item = 'nothing'
+        print(f"Reward: {quest.reward.get('xp', 0)} XP, {reward_item}")
+
+        accept = input("Accept? (yes/no) > ").lower()
+        if accept == 'yes':
+            player.active_quests[quest_name] = copy.deepcopy(quest)
+            print(f"Quest accepted: \"{quest_name}\"")
+            if 'item' in quest.on_accept and quest.on_accept.get('item'):
+                item_name = quest.on_accept['item']
+                player.inventory.append(item_name)
+                print(f"You receive a {item_name}.")
+
+        quest_offered_this_interaction = True
+        break
+
+    if not quest_offered_this_interaction:
+        if hasattr(npc_to_talk, 'services') and 'heal' in npc_to_talk.services:
+            print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}" You can type `heal` to be restored.')
+        elif len(npc_to_talk.dialogue) > 1:
+            print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}"')
+        elif npc_to_talk.dialogue:
+            print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
+        else:
+            print(f"{npc_to_talk.name} has nothing more to say.")
 
 def main():
     game_data, items, monsters, locations, npcs, quests, quest_dialogue_map = load_game_data()
@@ -391,22 +627,7 @@ def main():
         elif command == "look":
             handle_look(current_loc, npcs, player, quests)
         elif command == "get":
-            if not target_name:
-                print("Get what?")
-                continue
-            item_to_get = None
-            for item_name in current_loc.items:
-                if target_name.lower() == item_name.lower():
-                    item_to_get = item_name
-                    break
-            if item_to_get:
-                player.inventory.append(item_to_get)
-                current_loc.items.remove(item_to_get)
-                print(f"You pick up the {item_to_get}.")
-                check_quest_availability(player, quests, "item_pickup", item_to_get)
-                # No longer check collect quests on get
-            else:
-                print(f"You don't see a {target_name} here.")
+            handle_get(player, target_name, {"locations": locations, "quests": quests})
         elif command == "examine":
             if not target_name:
                 print("Examine what?")
@@ -498,109 +719,11 @@ def main():
             else:
                 print("There is no one here who can heal you.")
         elif command == "rest":
-            if hasattr(current_loc, 'healing_station') and current_loc.healing_station:
-                station = current_loc.healing_station
-                if station['uses'] > 0:
-                    if station['type'] == 'full':
-                        player.heal(player.max_hp)
-                    else:
-                        player.heal(station['amount'])
-                    station['uses'] -= 1
-                    if station['uses'] == 0:
-                        print("The healing station is now depleted.")
-                else:
-                    print("This healing station has already been used.")
-            else:
-                print("There is nowhere to rest here.")
+            handle_rest(player, locations)
         elif command == "talk":
-            if not target_name:
-                print("Talk to whom?")
-                continue
-            npc_to_talk = None
-            for npc_name in current_loc.npcs:
-                if target_name.lower() == npc_name.lower():
-                    npc_to_talk = npcs[npc_name]
-                    break
-
-            if not npc_to_talk:
-                print(f"You don't see {target_name} here.")
-                continue
-
-            player.dialogue_history.add(npc_to_talk.name)
-            check_collect_quests(player, quests, talked_to_npc=npc_to_talk)
-
-            quest_offered_this_interaction = False
-            # Iterate through the NPC's quest list in order to find the first one to offer
-            for quest_name in npc_to_talk.quests:
-                if quest_name in player.active_quests or quest_name in player.completed_quests:
-                    continue
-
-                quest = quests.get(quest_name)
-                if not quest or (quest.requires and quest.requires not in player.completed_quests):
-                    continue
-
-                # Found a valid quest to offer.
-                # Use the explicit dialogue from the map if it exists.
-                dialogue_to_use = quest_dialogue_map.get(quest_name)
-                if dialogue_to_use:
-                    print(f'{npc_to_talk.name}: "{dialogue_to_use}"')
-                elif npc_to_talk.dialogue: # Fallback to the first line
-                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
-
-                print(f"Quest offered: \"{quest.name}\"")
-                print(f"- {quest.description}")
-                reward_item = quest.reward.get('item', 'nothing')
-                if not reward_item: reward_item = 'nothing'
-                print(f"Reward: {quest.reward.get('xp', 0)} XP, {reward_item}")
-
-                accept = input("Accept? (yes/no) > ").lower()
-                if accept == 'yes':
-                    player.active_quests[quest_name] = copy.deepcopy(quest)
-                    print(f"Quest accepted: \"{quest_name}\"")
-                    if 'item' in quest.on_accept and quest.on_accept['item']:
-                        item_name = quest.on_accept['item']
-                        player.inventory.append(item_name)
-                        print(f"You receive a {item_name}.")
-
-                quest_offered_this_interaction = True
-                break # Offer only one quest per interaction
-
-            if not quest_offered_this_interaction:
-                # If no quests were offered, give a generic response
-                if hasattr(npc_to_talk, 'services') and 'heal' in npc_to_talk.services:
-                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}" You can type `heal` to be restored.')
-                elif len(npc_to_talk.dialogue) > 1:
-                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}"')
-                elif npc_to_talk.dialogue:
-                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
-                else:
-                    print(f"{npc_to_talk.name} has nothing more to say.")
+            handle_talk(player, target_name, locations, npcs, quests, quest_dialogue_map)
         elif command == "equip":
-            if not target_name:
-                print("Equip what?")
-                continue
-            item_to_equip = None
-            for item_name in player.inventory:
-                if target_name.lower() == item_name.lower():
-                    item_to_equip = items[item_name]
-                    break
-            if item_to_equip:
-                if isinstance(item_to_equip, Weapon):
-                    if player.equipped_weapon:
-                        player.inventory.append(player.equipped_weapon.name)
-                    player.equipped_weapon = item_to_equip
-                    player.inventory.remove(item_to_equip.name)
-                    print(f"You equipped the {item_to_equip.name}.")
-                elif isinstance(item_to_equip, Armor):
-                    if player.equipped_armor:
-                        player.inventory.append(player.equipped_armor.name)
-                    player.equipped_armor = item_to_equip
-                    player.inventory.remove(item_to_equip.name)
-                    print(f"You equipped the {item_to_equip.name}.")
-                else:
-                    print("You can't equip that.")
-            else:
-                print(f"You don't have a {target_name}.")
+            handle_equip(player, target_name, items)
         elif command == "unequip":
             if not target_name:
                 print("Unequip what? (weapon/armor)")
@@ -624,24 +747,10 @@ def main():
             else:
                 print("You can only unequip 'weapon' or 'armor'.")
         elif command == "use":
-            if not target_name:
-                print("Use what?")
-                continue
-            item_to_use = None
-            for item_name in player.inventory:
-                if target_name.lower() == item_name.lower():
-                    item_to_use = items[item_name]
-                    break
-            if item_to_use and isinstance(item_to_use, Potion):
-                print(f"You use the {item_to_use.name}.")
-                player.heal(item_to_use.heal_amount)
-                player.inventory.remove(item_to_use.name)
-                if player.current_combat_target:
-                    if not handle_monster_turn(player, player.current_combat_target):
-                        print("You have been defeated. Game over.")
-                        break
-            else:
-                print("You can't use that.")
+            handle_use(player, target_name, {"items": items})
+            if player.hp <= 0:
+                print("You have been defeated. Game over.")
+                break
         elif command == "flee":
             if not player.current_combat_target:
                 print("You are not in combat.")
@@ -652,83 +761,17 @@ def main():
             print("You attempt to flee...")
             print(f"You barely escape the {monster.name}!")
             input("\n[Press Enter to continue]")
-            handle_look(locations[player.current_location], npcs)
+            handle_look(locations[player.current_location], npcs, player, quests)
         elif command == "attack":
-            if not target_name:
-                print("Attack what?")
-                continue
-            monster_to_attack = None
-            if player.current_combat_target:
-                if target_name.lower() != player.current_combat_target.name.lower():
-                    print(f"You are already in combat with {player.current_combat_target.name}!")
-                    continue
-                monster_to_attack = player.current_combat_target
-            else:
-                monster_name_to_attack = None
-                for monster_name in current_loc.active_monsters:
-                    if target_name.lower() == monster_name.lower():
-                        monster_name_to_attack = monster_name
-                        break
-                if not monster_name_to_attack:
-                    print(f"You don't see a {target_name} here.")
-                    continue
-                monster_prototype = monsters[monster_name_to_attack]
-                monster_to_attack = copy.deepcopy(monster_prototype)
-                player.current_combat_target = monster_to_attack
-                print("--- Combat Started ---")
-                print(f"You engage the {monster_to_attack.name} in combat!")
-            player_attack = player.get_attack_power()
-            monster_to_attack.hp -= player_attack
-            print(f"You attack the {monster_to_attack.name} for {player_attack} damage.")
-            if monster_to_attack.hp <= 0:
-                defeated_monster = monster_to_attack
-                print(f"You defeated the {defeated_monster.name}!")
-                current_loc.active_monsters.remove(defeated_monster.name)
-                player.gain_xp(defeated_monster.xp)
-                for quest in player.active_quests.values():
-                    # Handle main goal
-                    if quest.goal.get('type') == 'kill' and quest.goal.get('target') == defeated_monster.name:
-                        quest.progress += 1
-                    # Handle alternate goal
-                    if quest.alternate_goal and quest.alternate_goal.get('type') == 'kill' and quest.alternate_goal.get('target') == defeated_monster.name:
-                        # For alternate goals, we can just mark the quest as complete directly if the count is met.
-                        # This is a simplification for the "Clear the Catacombs" quest.
-                        quest.progress += quest.alternate_goal.get('count', 1)
-
-                    # Check for completion
-                    goal_count = quest.goal.get('count', 1)
-                    if quest.alternate_goal and quest.alternate_goal.get('type') == 'kill':
-                        # Special handling for "Clear the Catacombs"
-                        if quest.goal.get('target') == 'Skeleton' and defeated_monster.name == 'Undead Wight':
-                             # Killing one Undead Wight completes the quest
-                             quest.progress = goal_count
-
-                    if quest.progress >= goal_count and not quest.is_complete:
-                        handle_quest_completion(player, quest, quests)
-                    elif not quest.is_complete:
-                        print(f"Quest progress: {quest.name} ({quest.progress}/{goal_count})")
-                completed = [name for name, quest in player.active_quests.items() if quest.is_complete]
-                for name in completed:
-                    player.completed_quests.append(name)
-                    del player.active_quests[name]
-                if defeated_monster.loot:
-                    for loot_item in defeated_monster.loot:
-                        current_loc.items.append(loot_item)
-                        print(f"The {defeated_monster.name} dropped a {loot_item}.")
-
-                # Handle drop table
-                if defeated_monster.drop_table:
-                    for drop in defeated_monster.drop_table:
-                        if random.random() < drop['chance']:
-                            current_loc.items.append(drop['item'])
-                            print(f"The {defeated_monster.name} also dropped a {drop['item']}!")
-
-                player.current_combat_target = None
-            else:
-                print(f"{monster_to_attack.name} has {monster_to_attack.hp} HP left.")
-                if not handle_monster_turn(player, monster_to_attack):
-                    player.current_combat_target = None
-                    break
+            handle_attack(player, target_name, {
+                "locations": locations,
+                "monsters": monsters,
+                "quests": quests,
+                "items": items
+            })
+            if player.hp <= 0:
+                print("You have been defeated. Game over.")
+                break
         elif command == "help":
             print_help()
         else:
