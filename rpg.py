@@ -118,7 +118,7 @@ class NPC:
         self.services = services if services is not None else {}
 
 class Quest:
-    def __init__(self, name, description, goal, reward, start=None, alternate_goal=None, on_accept=None, unlocks=None, lead_in=None, **kwargs):
+    def __init__(self, name, description, goal, reward, start=None, alternate_goal=None, on_accept=None, unlocks=None, lead_in=None, completion=None, prerequisite=None, **kwargs):
         self.name = name
         self.description = description
         self.goal = goal
@@ -127,7 +127,7 @@ class Quest:
         self.alternate_goal = alternate_goal
         self.on_accept = on_accept if on_accept is not None else {}
         self.unlocks = unlocks if unlocks is not None else []
-        self.requires = None # New attribute for prerequisites
+        self.requires = prerequisite
         self.progress = 0
         self.is_complete = False
         self.lead_in = lead_in
@@ -350,6 +350,36 @@ def handle_monster_turn(player, monster):
     if player.hp <= 0:
         return False
     return True
+
+def resolve_npc_dialogue(npc, player, quests):
+    # 1. Check for active quests with the NPC
+    active_npc_quests = [q for q in player.active_quests.keys() if q in npc.quests]
+    if active_npc_quests:
+        quest_name = active_npc_quests[0]
+        dialogue = npc.dialogue["quest_active"].get(quest_name, npc.dialogue["default"])
+        return dialogue, None
+
+    # 2. Check for quests to offer
+    quest_to_offer = None
+    for quest_name in npc.quests:
+        if quest_name not in player.completed_quests and quest_name not in player.active_quests:
+            quest = quests.get(quest_name)
+            if quest and (not quest.requires or quest.requires in player.completed_quests):
+                quest_to_offer = quest
+                break
+
+    if quest_to_offer:
+        dialogue = npc.dialogue["quest_offer"].get(quest_to_offer.name, npc.dialogue["default"])
+        return dialogue, quest_to_offer.name
+
+    # 3. Check if all quests from this NPC are complete
+    all_quests_complete = all(q in player.completed_quests for q in npc.quests)
+    if all_quests_complete:
+        dialogue = npc.dialogue.get("after_all_quests", npc.dialogue["default"])
+        return dialogue, None
+
+    # 4. Default dialogue
+    return npc.dialogue["default"], None
 
 def main():
     game_data, items, monsters, locations, npcs, quests, quest_dialogue_map = load_game_data()
