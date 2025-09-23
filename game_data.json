@@ -30,7 +30,7 @@
       "npcs": []
     },
     "Crumbling Catacombs": {
-      "description": "Ancient stone tunnels filled with stale air. Bones crunch beneath your feet. A stair leads deeper into the earth.",
+      "description": "Ancient stone tunnels filled with stale air. Bones crunch beneath your feet. A faintly glowing font offers a moment of respite. A stair leads deeper into the earth.",
       "exits": {
         "up": "Luminaris",
         "down": "Crumbling Catacombs - Depths"
@@ -192,7 +192,7 @@
         "If you find a cultist's note or an old scroll, bring it to me — I may explain it.",
         "Ask me about 'Elenya', 'Hollow Spire', or 'Veil' and I will share what I know."
       ],
-      "quests": ["Investigate the Hollow Clues", "Defeat the Cultist Lieutenant"]
+      "quests": ["Investigate the Hollow Clues"]
     },
     "Temple Cleric": {
       "dialogue": [
