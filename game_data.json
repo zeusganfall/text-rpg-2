@@ -179,53 +179,35 @@
 
   "npcs": {
     "Guard Captain": {
-      "dialogue": {
-        "default": "Be careful out there, adventurer.",
-        "quest_offer": {
-          "Clear the Woods": "Shadows are stirring in Shademire Woods. Goblins have been seen twisting under a foul influence — we need someone to put them down.",
-          "Clear the Catacombs": "If you can clear the catacombs of undead, the roads will be safer. Travelers fear to pass near those tombs."
-        },
-        "quest_active": {
-          "Clear the Woods": "Be careful — these are not the goblins you knew. Something darker drives them now.",
-          "Clear the Catacombs": "The catacombs are dangerous. Bones walk where they should rest. Stay sharp, adventurer."
-        },
-        "after_all_quests": "You’ve done well. But there’s worse brewing beneath the capital…"
-      },
+      "dialogue": [
+        "Shadows are stirring in Shademire Woods. Goblins have been seen twisting under a foul influence — we need someone to put them down.",
+        "Be careful — these are not the goblins you knew. Something darker drives them now.",
+        "If you can clear the catacombs of undead, the roads will be safer. Travelers fear to pass near those tombs.",
+        "You’ve done well. But there’s worse brewing beneath the capital…"
+      ],
       "quests": ["Clear the Woods", "Clear the Catacombs"]
     },
     "Wandering Scholar": {
-      "dialogue": {
-        "default": "The secrets of the past are waiting to be uncovered.",
-        "quest_offer": {
-          "Investigate the Hollow Clues": "I study the old wards of the Veil, but my knowledge is incomplete. There are fragments scattered in the field — scrolls left to rot, notes stolen by cultists, shards of lore clinging to restless dead. Alone, I cannot brave those places. Will you recover them for me?",
-          "Defeat the Cultist Lieutenant": "The cult’s writings point to a leader in the woods — a lieutenant gathering strength for something greater. If he falls, their plans falter. Will you strike him down?"
-        },
-        "quest_active": {
-          "Investigate the Hollow Clues": "The fragments are out there. Be diligent.",
-          "Defeat the Cultist Lieutenant": "The lieutenant is a formidable foe. Be prepared."
-        },
-        "after_all_quests": "The lieutenant is no more. But if there was one commander, surely there are others — and a master behind them."
-      },
+      "dialogue": [
+        "I study the old wards of the Veil, but my knowledge is incomplete. There are fragments scattered in the field — scrolls left to rot, notes stolen by cultists, shards of lore clinging to restless dead. Alone, I cannot brave those places. Will you recover them for me?",
+        "At last! With the scroll, the cult’s notes, and the fragments, the pattern emerges. Elenya’s name repeats again and again. She is the key, and she is missing…",
+        "The cult’s writings point to a leader in the woods — a lieutenant gathering strength for something greater. If he falls, their plans falter. Will you strike him down?",
+        "The lieutenant is no more. But if there was one commander, surely there are others — and a master behind them."
+      ],
       "quests": ["Investigate the Hollow Clues", "Defeat the Cultist Lieutenant"]
     },
     "Swamp Hermit": {
-      "dialogue": {
-        "default": "The swamp has many secrets. Be wary.",
-        "quest_offer": {
-          "Investigate the Sunken Swamp": "You smell of battle. The cult stirs not just in the woods — the swamp itself festers. I’ve seen lights at night and heard chanting in the muck. If you would know the truth, bring me what the swamp hides: letters, fragments, anything."
-        },
-        "quest_active": {
-          "Investigate the Sunken Swamp": "The swamp hides many secrets still. Be wary, traveler."
-        },
-        "after_all_quests": "This letter… Elenya has been taken. The corruption spreads fast. If she is bound to the Veil, then the kingdom’s end is closer than you think."
-      },
+      "dialogue": [
+        "You smell of battle. The cult stirs not just in the woods — the swamp itself festers. I’ve seen lights at night and heard chanting in the muck. If you would know the truth, bring me what the swamp hides: letters, fragments, anything.",
+        "This letter… Elenya has been taken. The corruption spreads fast. If she is bound to the Veil, then the kingdom’s end is closer than you think.",
+        "The swamp hides many secrets still. Be wary, traveler."
+      ],
       "quests": ["Investigate the Sunken Swamp"]
     },
     "Temple Cleric": {
-      "dialogue": [
-        "May the light mend you, traveler.",
-        "I can restore your wounds, for free or coin depending on your need."
-      ],
+      "dialogue": {
+        "default": "May the light mend you, traveler."
+      },
       "services": {
         "heal": {
           "cost": 0,

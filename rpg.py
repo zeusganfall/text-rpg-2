@@ -218,8 +218,18 @@ def show_location(location, npcs, player, quests):
     location_npcs = []
     for npc_name in location.npcs:
         npc = npcs[npc_name]
-        _, quest_to_offer = resolve_npc_dialogue(npc, player, quests)
-        if quest_to_offer:
+        has_quest = False
+        # Check if the NPC has any quests in their list that the player can take
+        for quest_name in npc.quests:
+            quest = quests.get(quest_name)
+            if not quest: continue
+            # Check for prerequisites
+            if quest.requires and quest.requires not in player.completed_quests:
+                continue
+            if quest_name not in player.active_quests and quest_name not in player.completed_quests:
+                has_quest = True
+                break
+        if has_quest:
             location_npcs.append(f"{npc.name} (!)")
         else:
             location_npcs.append(npc.name)
@@ -340,36 +350,6 @@ def handle_monster_turn(player, monster):
     if player.hp <= 0:
         return False
     return True
-
-def resolve_npc_dialogue(npc, player, quests):
-    # 1. Check for active quests with the NPC
-    active_npc_quests = [q for q in player.active_quests.keys() if q in npc.quests]
-    if active_npc_quests:
-        quest_name = active_npc_quests[0]
-        dialogue = npc.dialogue["quest_active"].get(quest_name, npc.dialogue["default"])
-        return dialogue, None
-
-    # 2. Check for quests to offer
-    quest_to_offer = None
-    for quest_name in npc.quests:
-        if quest_name not in player.completed_quests and quest_name not in player.active_quests:
-            quest = quests.get(quest_name)
-            if quest and (not quest.requires or quest.requires in player.completed_quests):
-                quest_to_offer = quest
-                break
-
-    if quest_to_offer:
-        dialogue = npc.dialogue["quest_offer"].get(quest_to_offer.name, npc.dialogue["default"])
-        return dialogue, quest_to_offer.name
-
-    # 3. Check if all quests from this NPC are complete
-    all_quests_complete = all(q in player.completed_quests for q in npc.quests)
-    if all_quests_complete:
-        dialogue = npc.dialogue.get("after_all_quests", npc.dialogue["default"])
-        return dialogue, None
-
-    # 4. Default dialogue
-    return npc.dialogue["default"], None
 
 def main():
     game_data, items, monsters, locations, npcs, quests, quest_dialogue_map = load_game_data()
@@ -537,18 +517,6 @@ def main():
                     print("This healing station has already been used.")
             else:
                 print("There is nowhere to rest here.")
-        elif command == "accept":
-            if player.quest_offer and player.quest_offer.lower() == target_name:
-                quest = quests[player.quest_offer]
-                player.active_quests[player.quest_offer] = copy.deepcopy(quest)
-                print(f"Quest accepted: \"{player.quest_offer}\"")
-                if 'item' in quest.on_accept and quest.on_accept['item']:
-                    item_name = quest.on_accept['item']
-                    player.inventory.append(item_name)
-                    print(f"You receive a {item_name}.")
-                player.quest_offer = None
-            else:
-                print("You cannot accept that quest right now.")
         elif command == "talk":
             if not target_name:
                 print("Talk to whom?")
@@ -563,16 +531,55 @@ def main():
                 print(f"You don't see {target_name} here.")
                 continue
 
-            dialogue, quest_to_offer = resolve_npc_dialogue(npc_to_talk, player, quests)
-            player.quest_offer = quest_to_offer
-            print(f'{npc_to_talk.name}: "{dialogue}"')
-            if quest_to_offer:
-                quest = quests[quest_to_offer]
-                print(f"Quest offered: \"{quest_to_offer}\"")
+            player.dialogue_history.add(npc_to_talk.name)
+            check_collect_quests(player, quests, talked_to_npc=npc_to_talk)
+
+            quest_offered_this_interaction = False
+            # Iterate through the NPC's quest list in order to find the first one to offer
+            for quest_name in npc_to_talk.quests:
+                if quest_name in player.active_quests or quest_name in player.completed_quests:
+                    continue
+
+                quest = quests.get(quest_name)
+                if not quest or (quest.requires and quest.requires not in player.completed_quests):
+                    continue
+
+                # Found a valid quest to offer.
+                # Use the explicit dialogue from the map if it exists.
+                dialogue_to_use = quest_dialogue_map.get(quest_name)
+                if dialogue_to_use:
+                    print(f'{npc_to_talk.name}: "{dialogue_to_use}"')
+                elif npc_to_talk.dialogue: # Fallback to the first line
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
+
+                print(f"Quest offered: \"{quest.name}\"")
                 print(f"- {quest.description}")
                 reward_item = quest.reward.get('item', 'nothing')
                 if not reward_item: reward_item = 'nothing'
                 print(f"Reward: {quest.reward.get('xp', 0)} XP, {reward_item}")
+
+                accept = input("Accept? (yes/no) > ").lower()
+                if accept == 'yes':
+                    player.active_quests[quest_name] = copy.deepcopy(quest)
+                    print(f"Quest accepted: \"{quest_name}\"")
+                    if 'item' in quest.on_accept and quest.on_accept['item']:
+                        item_name = quest.on_accept['item']
+                        player.inventory.append(item_name)
+                        print(f"You receive a {item_name}.")
+
+                quest_offered_this_interaction = True
+                break # Offer only one quest per interaction
+
+            if not quest_offered_this_interaction:
+                # If no quests were offered, give a generic response
+                if hasattr(npc_to_talk, 'services') and 'heal' in npc_to_talk.services:
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}" You can type `heal` to be restored.')
+                elif len(npc_to_talk.dialogue) > 1:
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}"')
+                elif npc_to_talk.dialogue:
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
+                else:
+                    print(f"{npc_to_talk.name} has nothing more to say.")
         elif command == "equip":
             if not target_name:
                 print("Equip what?")
