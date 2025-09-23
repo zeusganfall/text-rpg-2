@@ -17,7 +17,7 @@
       },
       "items": [],
       "monsters": [],
-      "npcs": ["Guard Captain", "Wandering Scholar"]
+      "npcs": ["Guard Captain", "Wandering Scholar", "Temple Cleric"]
     },
     "Shademire Woods": {
       "description": "Twisted trees block out the sun. The air feels heavy, and faint eyes glimmer in the dark. Strange runes have begun to appear on trunks.",
@@ -37,7 +37,8 @@
       },
       "items": ["Rusted Sword", "Leather Armor"],
       "monsters": ["Skeleton"],
-      "npcs": []
+      "npcs": [],
+      "healing_station": { "type": "partial", "amount": 10, "uses": 1 }
     },
     "Crumbling Catacombs - Depths": {
       "description": "Deeper chambers of the catacombs. The air is colder and the bones are fresher — something undead stirs here.",
@@ -121,7 +122,8 @@
       "attack_power": 2,
       "loot": ["Goblin Ear"],
       "xp": 12,
-      "notes": "A goblin warped by shadow; tied to Malveth's corruption."
+      "notes": "A goblin warped by shadow; tied to Malveth's corruption.",
+      "drop_table": [{"item": "Healing Potion", "chance": 0.03}]
     },
     "Goblin": {
       "hp": 8,
@@ -148,7 +150,8 @@
       "attack_power": 3,
       "loot": ["Cultist Note"],
       "xp": 18,
-      "notes": "A minor cultist who serves Malveth's followers; drops a note that unlocks lore."
+      "notes": "A minor cultist who serves Malveth's followers; drops a note that unlocks lore.",
+      "drop_table": [{"item": "Healing Potion", "chance": 0.10}]
     },
     "Cultist Lieutenant": {
       "hp": 22,
@@ -162,7 +165,8 @@
       "attack_power": 3,
       "loot": ["Lore Fragment"],
       "xp": 25,
-      "notes": "A corrupted swamp creature, bound to the Sunken Swamp's rot."
+      "notes": "A corrupted swamp creature, bound to the Sunken Swamp's rot.",
+      "drop_table": [{"item": "Healing Potion", "chance": 0.12}]
     },
     "Corrupted Bog Beast": {
       "hp": 20,
@@ -189,12 +193,26 @@
         "Ask me about 'Elenya', 'Hollow Spire', or 'Veil' and I will share what I know."
       ],
       "quests": ["Investigate the Hollow Clues"]
+    },
+    "Temple Cleric": {
+      "dialogue": [
+        "May the light mend you, traveler.",
+        "I can restore your wounds, for free or coin depending on your need."
+      ],
+      "services": {
+        "heal": {
+          "cost": 0,
+          "type": "full"
+        }
+      },
+      "quests": []
     }
   },
 
   "quests": {
     "Clear the Woods": {
       "description": "Defeat 3 Shadow-Touched Goblins in Shademire Woods.",
+      "lead_in": "Shadows are stirring near the woods — we need help!",
       "start": { "type": "npc", "ref": "Guard Captain" },
       "goal": {
         "type": "kill",
@@ -211,6 +229,7 @@
     },
     "Investigate the Hollow Clues": {
       "description": "Bring a Cultist Note or the Old Scroll to the Wandering Scholar in Luminaris.",
+      "lead_in": "These clues may point to the Hollow Spire — bring any notes to the Wandering Scholar.",
       "start": { "type": "item_or_npc", "ref": ["Cultist Note", "Old Scroll", "Wandering Scholar"] },
       "goal": {
         "type": "collect_or_talk",
@@ -225,6 +244,7 @@
     },
     "Clear the Catacombs": {
       "description": "Eliminate undead in the Crumbling Catacombs and its Depths (3 Skeletons or 1 Undead Wight).",
+      "lead_in": "Bones grow restless below; we need that cleared.",
       "start": { "type": "location_enter", "ref": "Crumbling Catacombs" },
       "goal": {
         "type": "kill",
@@ -244,6 +264,7 @@
     },
     "Defeat the Cultist Lieutenant": {
       "description": "Find and defeat the Cultist Lieutenant in Shademire Woods (may appear after investigating clues).",
+      "lead_in": "A dangerous leader coordinates rituals—seek and end them.",
       "start": { "type": "npc", "ref": "Wandering Scholar" },
       "goal": {
         "type": "kill",
@@ -258,6 +279,7 @@
     },
     "Investigate the Sunken Swamp": {
       "description": "Venture into the Sunken Swamp and recover evidence of ritual corruption (Collect Captured Letter or Lore Fragment).",
+      "lead_in": "The swamp's corruption creeps outward; find proof of ritual activity.",
       "start": { "type": "location_enter", "ref": "Sunken Swamp (Edge)" },
       "goal": {
         "type": "collect_or_kill",
