@@ -33,6 +33,15 @@ class Player:
         print(f"You gained {amount} XP.")
         self.check_level_up()
 
+    def heal(self, amount):
+        healed_amount = amount
+        if self.hp + amount > self.max_hp:
+            healed_amount = self.max_hp - self.hp
+            self.hp = self.max_hp
+        else:
+            self.hp += amount
+        print(f"You healed for {healed_amount} HP. You are now at {self.hp}/{self.max_hp} HP.")
+
     def check_level_up(self):
         xp_to_level_up = 100 * self.level
         if self.xp >= xp_to_level_up:
@@ -50,19 +59,21 @@ class Player:
         print(f"HP: {self.hp} / {self.max_hp}")
         print(f"Attack Power: {self.get_attack_power()}")
         if self.equipped_weapon:
-            print(f"Weapon: {self.equipped_weapon.name} (+{self.equipped_weapon.damage} dmg)")
+            print(f"Weapon: {self.equipped_weapon.name} (+
+{self.equipped_weapon.damage} dmg)")
         if self.equipped_armor:
             print(f"Armor: {self.equipped_armor.name} (+{self.equipped_armor.defense} def)")
         print("---------------------")
 
 class Location:
-    def __init__(self, name, description, exits, items=None, monsters=None, npcs=None):
+    def __init__(self, name, description, exits, items=None, monsters=None, npcs=None, healing_station=None, **kwargs):
         self.name = name
         self.description = description
         self.exits = exits
         self.items = items if items is not None else []
         self.monsters = monsters if monsters is not None else []
         self.npcs = npcs if npcs is not None else []
+        self.healing_station = healing_station
         self.active_monsters = list(self.monsters)
 
 class Item:
@@ -91,19 +102,21 @@ class Readable(Item):
         self.lore_text = lore_text
 
 class Monster:
-    def __init__(self, name, hp, attack_power, loot=None, xp=0, **kwargs):
+    def __init__(self, name, hp, attack_power, loot=None, xp=0, drop_table=None, **kwargs):
         self.name = name
         self.hp = hp
         self.attack_power = attack_power
         self.loot = loot if loot is not None else []
         self.xp = xp
+        self.drop_table = drop_table if drop_table is not None else []
 
 class NPC:
-    def __init__(self, name, dialogue=None, quests=None, topics=None):
+    def __init__(self, name, dialogue=None, quests=None, topics=None, services=None, **kwargs):
         self.name = name
         self.dialogue = dialogue if dialogue is not None else []
         self.quests = quests if quests is not None else []
         self.topics = topics if topics is not None else {}
+        self.services = services if services is not None else {}
 
 class Quest:
     def __init__(self, name, description, goal, reward, start=None, alternate_goal=None, on_accept=None, unlocks=None):
@@ -144,6 +157,8 @@ def load_game_data(filepath="game_data.json"):
             "veil": "The Celestial Veil protects us from the horrors of the void. But it is weakening."
         }
     quests = {name: Quest(name=name, **details) for name, details in data.get('quests', {}).items()}
+    if "Investigate the Hollow Clues" in quests:
+        quests["Investigate the Hollow Clues"].unlocks = ["Defeat the Cultist Lieutenant"]
 
     # Post-process to add 'requires' to unlocked quests
     for quest in quests.values():
@@ -179,6 +194,8 @@ def print_help():
     print("  - equip [item]: Equip a weapon or armor")
     print("  - unequip [weapon/armor]: Unequip your weapon or armor")
     print("  - use [potion]: Use a potion to heal")
+    print("  - heal: Use a healing service from an NPC.")
+    print("  - rest: Use a healing station to restore health.")
     print("  - examine [item]: Examine an item in your inventory")
     print("  - ask [npc] [topic]: Ask an NPC about a specific topic.")
     print("  - talk [npc]: Talk to an NPC")
@@ -465,6 +482,37 @@ def main():
                     print(f"{npc_to_ask.name} has nothing to say about {topic}.")
             else:
                 print("Ask whom about what? (e.g., ask Wandering Scholar about Elenya)")
+        elif command == "heal":
+            healing_npc = None
+            for npc_name in current_loc.npcs:
+                npc = npcs[npc_name]
+                if hasattr(npc, 'services') and "heal" in npc.services:
+                    healing_npc = npc
+                    break
+
+            if healing_npc:
+                service = healing_npc.services['heal']
+                if service['type'] == 'full':
+                    player.heal(player.max_hp)
+                else:
+                    player.heal(service['amount'])
+            else:
+                print("There is no one here who can heal you.")
+        elif command == "rest":
+            if hasattr(current_loc, 'healing_station') and current_loc.healing_station:
+                station = current_loc.healing_station
+                if station['uses'] > 0:
+                    if station['type'] == 'full':
+                        player.heal(player.max_hp)
+                    else:
+                        player.heal(station['amount'])
+                    station['uses'] -= 1
+                    if station['uses'] == 0:
+                        print("The healing station is now depleted.")
+                else:
+                    print("This healing station has already been used.")
+            else:
+                print("There is nowhere to rest here.")
         elif command == "talk":
             if not target_name:
                 print("Talk to whom?")
@@ -520,7 +568,9 @@ def main():
 
             if not quest_offered_this_interaction:
                 # If no quests were offered, give a generic response
-                if len(npc_to_talk.dialogue) > 1:
+                if hasattr(npc_to_talk, 'services') and 'heal' in npc_to_talk.services:
+                    print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}" You can type `heal` to be restored.')
+                elif len(npc_to_talk.dialogue) > 1:
                     print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[1]}"')
                 elif npc_to_talk.dialogue:
                     print(f'{npc_to_talk.name}: "{npc_to_talk.dialogue[0]}"')
@@ -584,12 +634,8 @@ def main():
                     item_to_use = items[item_name]
                     break
             if item_to_use and isinstance(item_to_use, Potion):
-                player.hp += item_to_use.heal_amount
-                if player.hp > player.max_hp:
-                    player.hp = player.max_hp
+                player.heal(item_to_use.heal_amount)
                 player.inventory.remove(item_to_use.name)
-                print(f"You used the {item_to_use.name} and healed for {item_to_use.heal_amount} HP.")
-                print(f"You now have {player.hp}/{player.max_hp} HP.")
                 if player.current_combat_target:
                     if not handle_monster_turn(player, player.current_combat_target):
                         print("You have been defeated. Game over.")
@@ -669,6 +715,14 @@ def main():
                     for loot_item in defeated_monster.loot:
                         current_loc.items.append(loot_item)
                         print(f"The {defeated_monster.name} dropped a {loot_item}.")
+
+                # Handle drop table
+                if defeated_monster.drop_table:
+                    for drop in defeated_monster.drop_table:
+                        if random.random() < drop['chance']:
+                            current_loc.items.append(drop['item'])
+                            print(f"The {defeated_monster.name} also dropped a {drop['item']}!")
+
                 player.current_combat_target = None
             else:
                 print(f"{monster_to_attack.name} has {monster_to_attack.hp} HP left.")
