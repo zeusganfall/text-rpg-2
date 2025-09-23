@@ -144,8 +144,6 @@ def load_game_data(filepath="game_data.json"):
             "veil": "The Celestial Veil protects us from the horrors of the void. But it is weakening."
         }
     quests = {name: Quest(name=name, **details) for name, details in data.get('quests', {}).items()}
-    if "Investigate the Hollow Clues" in quests:
-        quests["Investigate the Hollow Clues"].unlocks = ["Defeat the Cultist Lieutenant"]
 
     # Post-process to add 'requires' to unlocked quests
     for quest in quests.values():

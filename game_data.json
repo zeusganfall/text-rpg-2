@@ -260,7 +260,8 @@
         "xp": 70,
         "item": "Leather Armor"
       },
-      "on_accept": {}
+      "on_accept": {},
+      "unlocks": ["Defeat the Cultist Lieutenant"]
     },
     "Defeat the Cultist Lieutenant": {
       "description": "Find and defeat the Cultist Lieutenant in Shademire Woods (may appear after investigating clues).",
@@ -275,7 +276,8 @@
         "xp": 120,
         "item": "Lore Fragment"
       },
-      "on_accept": {}
+      "on_accept": {},
+      "unlocks": ["Investigate the Sunken Swamp"]
     },
     "Investigate the Sunken Swamp": {
       "description": "Venture into the Sunken Swamp and recover evidence of ritual corruption (Collect Captured Letter or Lore Fragment).",
