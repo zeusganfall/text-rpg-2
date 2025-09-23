@@ -26,7 +26,7 @@
         "east": "Sunken Swamp (Edge)"
       },
       "items": ["Old Scroll"],
-      "monsters": ["Shadow-Touched Goblin", "Shadow-Touched Goblin", "Shadow-Touched Goblin", "Cultist"],
+      "monsters": ["Shadow-Touched Goblin", "Shadow-Touched Goblin", "Shadow-Touched Goblin", "Cultist", "Cultist Lieutenant"],
       "npcs": []
     },
     "Crumbling Catacombs": {
@@ -74,7 +74,7 @@
     "Rusted Sword": {
       "type": "Weapon",
       "description": "An old blade, chipped but still sharp enough to cut.",
-      "damage": 2
+      "damage": 3
     },
     "Leather Armor": {
       "type": "Armor",
@@ -180,19 +180,29 @@
   "npcs": {
     "Guard Captain": {
       "dialogue": [
-        "Shadows are stirring in Shademire Woods.",
-        "We need brave souls to protect the kingdom.",
-        "If you can clear the catacombs of undead, the roads will be safer."
+        "Shadows are stirring in Shademire Woods. Goblins have been seen twisting under a foul influence — we need someone to put them down.",
+        "Be careful — these are not the goblins you knew. Something darker drives them now.",
+        "If you can clear the catacombs of undead, the roads will be safer. Travelers fear to pass near those tombs.",
+        "You’ve done well. But there’s worse brewing beneath the capital…"
       ],
       "quests": ["Clear the Woods", "Clear the Catacombs"]
     },
     "Wandering Scholar": {
       "dialogue": [
-        "There are fragments of old knowledge hidden across Eryndral.",
-        "If you find a cultist's note or an old scroll, bring it to me — I may explain it.",
-        "Ask me about 'Elenya', 'Hollow Spire', or 'Veil' and I will share what I know."
+        "I study the old wards of the Veil, but my knowledge is incomplete. There are fragments scattered in the field — scrolls left to rot, notes stolen by cultists, shards of lore clinging to restless dead. Alone, I cannot brave those places. Will you recover them for me?",
+        "At last! With the scroll, the cult’s notes, and the fragments, the pattern emerges. Elenya’s name repeats again and again. She is the key, and she is missing…",
+        "The cult’s writings point to a leader in the woods — a lieutenant gathering strength for something greater. If he falls, their plans falter. Will you strike him down?",
+        "The lieutenant is no more. But if there was one commander, surely there are others — and a master behind them."  
       ],
-      "quests": ["Investigate the Hollow Clues"]
+      "quests": ["Investigate the Hollow Clues", "Defeat the Cultist Lieutenant"]
+    },
+    "Swamp Hermit": {
+      "dialogue": [
+        "You smell of battle. The cult stirs not just in the woods — the swamp itself festers. I’ve seen lights at night and heard chanting in the muck. If you would know the truth, bring me what the swamp hides: letters, fragments, anything.",
+        "This letter… Elenya has been taken. The corruption spreads fast. If she is bound to the Veil, then the kingdom’s end is closer than you think.",
+        "The swamp hides many secrets still. Be wary, traveler."
+      ],
+      "quests": ["Investigate the Sunken Swamp"]
     },
     "Temple Cleric": {
       "dialogue": [
@@ -212,85 +222,75 @@
   "quests": {
     "Clear the Woods": {
       "description": "Defeat 3 Shadow-Touched Goblins in Shademire Woods.",
-      "lead_in": "Shadows are stirring near the woods — we need help!",
+      "lead_in": "Shadows are stirring in Shademire Woods. Goblins have been seen twisting under a foul influence — we need someone to put them down.",
       "start": { "type": "npc", "ref": "Guard Captain" },
+      "prerequisite": null,
       "goal": {
         "type": "kill",
         "target": "Shadow-Touched Goblin",
         "count": 3
       },
-      "reward": {
-        "xp": 50,
-        "item": null
-      },
-      "on_accept": {
-        "item": "Healing Potion"
-      }
+      "completion": "auto",
+      "reward": { "xp": 50, "item": "Healing Potion" },
+      "on_accept": { "item": "Healing Potion" }
     },
-    "Investigate the Hollow Clues": {
-      "description": "Bring a Cultist Note or the Old Scroll to the Wandering Scholar in Luminaris.",
-      "lead_in": "These clues may point to the Hollow Spire — bring any notes to the Wandering Scholar.",
-      "start": { "type": "item_or_npc", "ref": ["Cultist Note", "Old Scroll", "Wandering Scholar"] },
-      "goal": {
-        "type": "collect_or_talk",
-        "targets": ["Cultist Note", "Old Scroll", "Captured Letter"],
-        "count": 1
-      },
-      "reward": {
-        "xp": 30,
-        "item": null
-      },
-      "on_accept": {}
-    },
+
     "Clear the Catacombs": {
-      "description": "Eliminate undead in the Crumbling Catacombs and its Depths (3 Skeletons or 1 Undead Wight).",
-      "lead_in": "Bones grow restless below; we need that cleared.",
-      "start": { "type": "location_enter", "ref": "Crumbling Catacombs" },
+      "description": "Eliminate undead in the Crumbling Catacombs and its Depths.",
+      "lead_in": "If you can clear the catacombs of undead, the roads will be safer. Travelers fear to pass near those tombs.",
+      "start": { "type": "npc", "ref": "Guard Captain" },
+      "prerequisite": "Clear the Woods",
       "goal": {
-        "type": "kill",
-        "target": "Skeleton",
+        "type": "composite",
+        "requirements": [
+          { "type": "kill", "target": "Skeleton", "count": 3 },
+          { "type": "kill", "target": "Undead Wight", "count": 1 }
+        ]
+      },
+      "completion": "auto",
+      "reward": { "xp": 70, "item": "Leather Armor" }
+    },
+
+    "Investigate the Hollow Clues": {
+      "description": "Recover the Old Scroll, a Cultist Note, and a Lore Fragment for the Wandering Scholar.",
+      "lead_in": "I study the old wards of the Veil, but my knowledge is incomplete. There are fragments scattered in the field — scrolls left to rot, notes stolen by cultists, shards of lore clinging to restless dead. Alone, I cannot brave those places. Will you recover them for me?",
+      "start": { "type": "npc", "ref": "Wandering Scholar" },
+      "prerequisite": "Clear the Catacombs",
+      "goal": {
+        "type": "collect_all",
+        "targets": ["Old Scroll", "Cultist Note", "Lore Fragment"],
         "count": 3
       },
-      "alternate_goal": {
-        "type": "kill",
-        "target": "Undead Wight",
-        "count": 1
-      },
-      "reward": {
-        "xp": 70,
-        "item": "Leather Armor"
-      },
-      "on_accept": {}
+      "completion": "talk_to_giver",
+      "reward": { "xp": 80, "item": null }
     },
+
     "Defeat the Cultist Lieutenant": {
-      "description": "Find and defeat the Cultist Lieutenant in Shademire Woods (may appear after investigating clues).",
-      "lead_in": "A dangerous leader coordinates rituals—seek and end them.",
+      "description": "Find and defeat the Cultist Lieutenant in Shademire Woods to disrupt the cult's operations.",
+      "lead_in": "The cult's writings point to a leader in the woods — a lieutenant gathering strength for something greater. If he falls, their plans falter. Will you strike him down?",
       "start": { "type": "npc", "ref": "Wandering Scholar" },
+      "prerequisite": "Investigate the Hollow Clues",
       "goal": {
         "type": "kill",
         "target": "Cultist Lieutenant",
         "count": 1
       },
-      "reward": {
-        "xp": 120,
-        "item": "Lore Fragment"
-      },
-      "on_accept": {}
+      "completion": "auto",
+      "reward": { "xp": 120, "item": "Lore Fragment" }
     },
+
     "Investigate the Sunken Swamp": {
-      "description": "Venture into the Sunken Swamp and recover evidence of ritual corruption (Collect Captured Letter or Lore Fragment).",
-      "lead_in": "The swamp's corruption creeps outward; find proof of ritual activity.",
-      "start": { "type": "location_enter", "ref": "Sunken Swamp (Edge)" },
+      "description": "Explore the Sunken Swamp and recover evidence of ritual corruption for the Swamp Hermit.",
+      "lead_in": "You smell of battle. The cult stirs not just in the woods — the swamp itself festers. I’ve seen lights at night and heard chanting in the muck. If you would know the truth, bring me what the swamp hides: letters, fragments, anything.",
+      "start": { "type": "npc", "ref": "Swamp Hermit" },
+      "prerequisite": "Defeat the Cultist Lieutenant",
       "goal": {
-        "type": "collect_or_kill",
+        "type": "collect_all",
         "targets": ["Captured Letter", "Lore Fragment"],
         "count": 1
       },
-      "reward": {
-        "xp": 80,
-        "item": null
-      },
-      "on_accept": {}
+      "completion": "talk_to_giver",
+      "reward": { "xp": 90, "item": null }
     }
   }
 }
