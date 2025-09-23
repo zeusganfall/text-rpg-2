@@ -303,6 +303,10 @@ def handle_quest_completion(player, quest, quests):
         player.inventory.append(item_name)
         print(f"You received a {item_name} as a reward.")
 
+    if quest.name in player.active_quests:
+        del player.active_quests[quest.name]
+    player.completed_quests.append(quest.name)
+
     # Notify player if any quests were unlocked by this completion
     if quest.unlocks:
         for unlocked_quest_name in quest.unlocks:
