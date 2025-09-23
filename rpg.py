@@ -59,8 +59,7 @@ class Player:
         print(f"HP: {self.hp} / {self.max_hp}")
         print(f"Attack Power: {self.get_attack_power()}")
         if self.equipped_weapon:
-            print(f"Weapon: {self.equipped_weapon.name} (+
-{self.equipped_weapon.damage} dmg)")
+            print(f"Weapon: {self.equipped_weapon.name} (+{self.equipped_weapon.damage} dmg)")
         if self.equipped_armor:
             print(f"Armor: {self.equipped_armor.name} (+{self.equipped_armor.defense} def)")
         print("---------------------")
@@ -634,6 +633,7 @@ def main():
                     item_to_use = items[item_name]
                     break
             if item_to_use and isinstance(item_to_use, Potion):
+                print(f"You use the {item_to_use.name}.")
                 player.heal(item_to_use.heal_amount)
                 player.inventory.remove(item_to_use.name)
                 if player.current_combat_target:
